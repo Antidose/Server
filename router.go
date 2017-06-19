@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+        "database/sql"
 
 	"github.com/gorilla/websocket"
+        _"github.com/lib/pq"
 )
 
 type commandStruct struct {
@@ -66,11 +68,40 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	userSocketmap[string(message)] = conn
 }
 
+func postgresTest(w http.ResponseWriter, r *http.Request) {
+    const(
+        host        = "localhost"
+        port        = 5432
+        user        = "tanner"
+        password    = "tanner"
+        dbname      = "antidose"
+    )
+
+    psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+    db, err := sql.Open("postgres", psqlInfo)
+    checkErr(err)
+
+    err = db.Ping()
+    checkErr(err)
+
+    var lastInsertID int
+    err = db.QueryRow("INSERT INTO users(first_name,last_name,phone_number,current_status) VALUES($1,$2,$3,$4) returning u_id;", "Test", "Person", "123456789", "active").Scan(&lastInsertID)
+    checkErr(err)
+    fmt.Println("Just inserted id = ", lastInsertID)
+}
+
+func checkErr(err error) {
+    if err != nil {
+        panic(err)
+    }
+}
+
 func initRoutes() {
 	port := ":8088"
 	fmt.Printf("Started watching on port %s\n", port)
 	http.HandleFunc("/", mainHandler)
 	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/ws", wsHandler)
+        http.HandleFunc("/postgres", postgresTest)
 	http.ListenAndServe(port, nil)
 }
