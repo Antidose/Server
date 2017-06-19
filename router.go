@@ -1,14 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-        "database/sql"
 
 	"github.com/gorilla/websocket"
-        _"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 type commandStruct struct {
@@ -69,31 +69,25 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func postgresTest(w http.ResponseWriter, r *http.Request) {
-    const(
-        host        = "localhost"
-        port        = 5432
-        user        = "tanner"
-        password    = "tanner"
-        dbname      = "antidose"
-    )
+	const (
+		host     = "localhost"
+		port     = 5432
+		user     = "tanner"
+		password = "tanner"
+		dbname   = "antidose"
+	)
 
-    psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-    db, err := sql.Open("postgres", psqlInfo)
-    checkErr(err)
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	db, err := sql.Open("postgres", psqlInfo)
+	failOnError(err, "Failed to open Postgres")
 
-    err = db.Ping()
-    checkErr(err)
+	err = db.Ping()
+	failOnError(err, "Failed to ping Postgres")
 
-    var lastInsertID int
-    err = db.QueryRow("INSERT INTO users(first_name,last_name,phone_number,current_status) VALUES($1,$2,$3,$4) returning u_id;", "Test", "Person", "123456789", "active").Scan(&lastInsertID)
-    checkErr(err)
-    fmt.Println("Just inserted id = ", lastInsertID)
-}
-
-func checkErr(err error) {
-    if err != nil {
-        panic(err)
-    }
+	var lastInsertID int
+	err = db.QueryRow("INSERT INTO users(first_name,last_name,phone_number,current_status) VALUES($1,$2,$3,$4) returning u_id;", "Test", "Person", "123456789", "active").Scan(&lastInsertID)
+	failOnError(err, "Failed to perform insert in Postgres")
+	fmt.Println("Just inserted id = ", lastInsertID)
 }
 
 func initRoutes() {
@@ -102,6 +96,6 @@ func initRoutes() {
 	http.HandleFunc("/", mainHandler)
 	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/ws", wsHandler)
-        http.HandleFunc("/postgres", postgresTest)
+	http.HandleFunc("/postgres", postgresTest)
 	http.ListenAndServe(port, nil)
 }
