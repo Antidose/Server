@@ -14,6 +14,12 @@ func failOnError(err error, msg string) {
 	}
 }
 
+func failGracefully(err error, msg string) {
+	if err != nil {
+		fmt.Printf("%s: %s", msg, err)
+	}
+}
+
 func main() {
 	initRoutes()
 	<-done
