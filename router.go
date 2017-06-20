@@ -34,7 +34,7 @@ func textHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func mainHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "welcome to root")
+	fmt.Fprint(w, "welcome to antidose")
 }
 
 func authHandler(w http.ResponseWriter, r *http.Request) {
