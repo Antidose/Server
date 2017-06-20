@@ -77,17 +77,36 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 		dbname   = "antidose"
 	)
 
+        decoder := json.NewDecoder(r.Body)
+        cmd := struct{ Command string }{""}
+        err := decoder.Decode(&cmd)
+
+        if cmd.Command == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Bad command")
+
+			return
+        }
+
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
 	db, err := sql.Open("postgres", psqlInfo)
 	failOnError(err, "Failed to open Postgres")
+	defer db.Close()
 
 	err = db.Ping()
 	failOnError(err, "Failed to ping Postgres")
 
-	var lastInsertID int
-	err = db.QueryRow("INSERT INTO users(first_name,last_name,phone_number,current_status) VALUES($1,$2,$3,$4) returning u_id;", "Test", "Person", "123456789", "active").Scan(&lastInsertID)
-	failOnError(err, "Failed to perform insert in Postgres")
-	fmt.Println("Just inserted id = ", lastInsertID)
+	rows, err := db.Query(cmd.Command)
+	failOnError(err, "Failed in query")
+	defer rows.Close()
+
+	numRows := 0
+	for rows.Next() {
+		numRows++
+	}
+
+	fmt.Fprintf(w, "Query ran successfully!")
+
 }
 
 func initRoutes() {
