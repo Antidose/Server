@@ -12,10 +12,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type commandStruct struct {
-	Command string
-}
-
 var (
 	//Globals
 	maxRand = 999999
