@@ -1,18 +1,32 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/sfreiberg/gotwilio"
 )
 
+// Configuration : Core config structure
+type Configuration struct {
+	Twilio TwilioKey
+}
+
+// TwilioKey : Config strucuture for Twilio
+type TwilioKey struct {
+	Sid    string
+	Token  string
+	Number string
+}
+
 // Globals
 var (
 	done           = make(chan struct{})
-	antidoseTwilio = gotwilio.NewTwilioClient("ACbf63e163b500ca960f648e79e24e9100", "8b5045f6891b48a3d858ba5e89f0a4d4")
-	antidoseNumber = "+17784004161"
+	configuration  = loadConfig()
+	antidoseTwilio = loadTwilio()
 )
 
 func failOnError(err error, msg string) {
@@ -26,6 +40,21 @@ func failGracefully(err error, msg string) {
 	if err != nil {
 		fmt.Printf("%s: %s", msg, err)
 	}
+}
+
+func loadConfig() Configuration {
+	file, _ := os.Open("conf.json")
+	decoder := json.NewDecoder(file)
+	configuration := Configuration{}
+	err := decoder.Decode(&configuration)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	return configuration
+}
+
+func loadTwilio() *gotwilio.Twilio {
+	return gotwilio.NewTwilioClient(configuration.Twilio.Sid, configuration.Twilio.Token)
 }
 
 func main() {
