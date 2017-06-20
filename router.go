@@ -68,6 +68,41 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	userSocketmap[string(message)] = conn
 }
 
+func regHandler(w http.ResponseWriter, r *http.Request) {
+	const (
+		host     = "localhost"
+		port     = 5432
+		user     = "tanner"
+		password = "tanner"
+		dbname   = "antidose"
+	)
+
+	//	TO DO: Actual Auth
+
+	decoder := json.NewDecoder(r.Body)
+	newUser := struct {
+		FirstName string `json:"first_name"`
+		LastName string `json:"last_name"`
+		PhoneNumber string `json:"phone_number"`
+		CurrentStatus string `json:"current_status"`
+	}{"", "", "", ""}
+	err := decoder.Decode(&newUser)
+	failOnError(err, "Failed to decode body")
+
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	db, err := sql.Open("postgres", psqlInfo)
+	failOnError(err, "Failed to open Postgres")
+	defer db.Close()
+
+	err = db.Ping()
+	failOnError(err, "Failed to ping Postgres")
+
+	queryString := "INSERT INTO users(first_name, last_name, phone_number, current_status) VALUES($1, $2, $3, $4)"
+	stmt, err := db.Prepare(queryString)
+	_, err = stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, newUser.CurrentStatus)
+	failOnError(err, "Failed to insert new user")
+}
+
 func postgresTest(w http.ResponseWriter, r *http.Request) {
 	const (
 		host     = "localhost"
@@ -77,16 +112,18 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 		dbname   = "antidose"
 	)
 
-        decoder := json.NewDecoder(r.Body)
-        cmd := struct{ Command string }{""}
-        err := decoder.Decode(&cmd)
+	decoder := json.NewDecoder(r.Body)
+	cmd := struct{ Command string }{""}
+	err := decoder.Decode(&cmd)
+	fmt.Println(cmd)
+	failOnError(err, "Failed to decode body")
 
-        if cmd.Command == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "Bad command")
+	if cmd.Command == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Bad command")
 
-			return
-        }
+		return
+	}
 
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
 	db, err := sql.Open("postgres", psqlInfo)
@@ -115,6 +152,7 @@ func initRoutes() {
 	http.HandleFunc("/", mainHandler)
 	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/ws", wsHandler)
+	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/postgres", postgresTest)
 	http.ListenAndServe(port, nil)
 }
