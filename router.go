@@ -162,6 +162,10 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func overdose(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func initRoutes() {
 	port := ":8088"
 	fmt.Printf("Started watching on port %s\n", port)
@@ -170,6 +174,6 @@ func initRoutes() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/postgres", postgresTest)
-	http.HandleFunc("/textuser", textHandler)
+	http.HandleFunc("/overdose", )
 	http.ListenAndServe(port, nil)
 }
