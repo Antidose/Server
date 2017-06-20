@@ -5,20 +5,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
 )
 
-type commandStruct struct {
-	Command string
-}
+var (
+	//Globals
+	maxRand = 999999
+	minRand = 100000
+)
 
 var userAuthStore = make(map[string]string)
 
+func textHandler(w http.ResponseWriter, r *http.Request) {
+	// Send a text to a user. Response is the code which is checked.
+	decoder := json.NewDecoder(r.Body)
+	cmd := struct{ Number string }{""}
+	err := decoder.Decode(&cmd)
+	failGracefully(err, "Failed to decode phone number")
+	userToken := minRand + rand.Intn(maxRand-minRand)
+
+	// Uncomment this out when we want to account send phone verification. It works.
+	//antidoseTwilio.SendSMS(antidoseNumber, cmd.Number, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", userToken), "", "")
+	fmt.Fprintf(w, "%d", userToken)
+}
+
 func mainHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "welcome to root")
+	fmt.Fprint(w, "welcome to antidose")
 }
 
 func authHandler(w http.ResponseWriter, r *http.Request) {
@@ -154,5 +170,6 @@ func initRoutes() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/postgres", postgresTest)
+	http.HandleFunc("/textuser", textHandler)
 	http.ListenAndServe(port, nil)
 }
