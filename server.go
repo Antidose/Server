@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sfreiberg/gotwilio"
+	"database/sql"
 )
 
 // Configuration : Core config structure
@@ -27,6 +28,7 @@ var (
 	done           = make(chan struct{})
 	configuration  = loadConfig()
 	antidoseTwilio = loadTwilio()
+	db             = loadDB()
 )
 
 func failOnError(err error, msg string) {
@@ -55,6 +57,23 @@ func loadConfig() Configuration {
 
 func loadTwilio() *gotwilio.Twilio {
 	return gotwilio.NewTwilioClient(configuration.Twilio.Sid, configuration.Twilio.Token)
+}
+
+func loadDB() *sql.DB{
+	const (
+		host     = "localhost"
+		port     = 5432
+		user     = "tanner"
+		password = "tanner"
+		dbname   = "antidose"
+	)
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	db, err := sql.Open("postgres", psqlInfo)
+	failOnError(err, "Failed to open Postgres")
+
+	err = db.Ping()
+	failOnError(err, "Failed to ping Postgres")
+	return db
 }
 
 func main() {

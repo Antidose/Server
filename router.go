@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -85,48 +84,24 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func regHandler(w http.ResponseWriter, r *http.Request) {
-	const (
-		host     = "localhost"
-		port     = 5432
-		user     = "tanner"
-		password = "tanner"
-		dbname   = "antidose"
-	)
 
-	//	TO DO: Actual Auth
+	//	TODO: Actual Auth
 
 	decoder := json.NewDecoder(r.Body)
 	newUser := struct {
 		FirstName string `json:"first_name"`
 		LastName string `json:"last_name"`
 		PhoneNumber string `json:"phone_number"`
-		CurrentStatus string `json:"current_status"`
-	}{"", "", "", ""}
+	}{"", "", ""}
 	err := decoder.Decode(&newUser)
 	failOnError(err, "Failed to decode body")
-
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-	db, err := sql.Open("postgres", psqlInfo)
-	failOnError(err, "Failed to open Postgres")
-	defer db.Close()
-
-	err = db.Ping()
-	failOnError(err, "Failed to ping Postgres")
-
 	queryString := "INSERT INTO users(first_name, last_name, phone_number, current_status) VALUES($1, $2, $3, $4)"
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, newUser.CurrentStatus)
+	_, err = stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, "active")
 	failOnError(err, "Failed to insert new user")
 }
 
 func postgresTest(w http.ResponseWriter, r *http.Request) {
-	const (
-		host     = "localhost"
-		port     = 5432
-		user     = "tanner"
-		password = "tanner"
-		dbname   = "antidose"
-	)
 
 	decoder := json.NewDecoder(r.Body)
 	cmd := struct{ Command string }{""}
@@ -141,14 +116,6 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-	db, err := sql.Open("postgres", psqlInfo)
-	failOnError(err, "Failed to open Postgres")
-	defer db.Close()
-
-	err = db.Ping()
-	failOnError(err, "Failed to ping Postgres")
-
 	rows, err := db.Query(cmd.Command)
 	failOnError(err, "Failed in query")
 	defer rows.Close()
@@ -162,8 +129,22 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func overdose(w http.ResponseWriter, r *http.Request) {
+func alertHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	//TODO geojson for location
+	alert := struct{
+		IMEI int `json:"IMEI"`
+		location string `json:"locaion"`
+	}{0,""}
+	err := decoder.Decode(&alert)
+	failOnError(err, "Failed to decode body")
 
+	//TODO socket
+
+	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, $2, $3)"
+	stmt, err := db.Prepare(queryString)
+	_, err = stmt.Exec(alert.IMEI, alert.location, "now")
+	failOnError(err, "Failed to insert new user")
 }
 
 func initRoutes() {
@@ -174,6 +155,6 @@ func initRoutes() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/postgres", postgresTest)
-	http.HandleFunc("/overdose", )
+	http.HandleFunc("/alert", alertHandler)
 	http.ListenAndServe(port, nil)
 }
