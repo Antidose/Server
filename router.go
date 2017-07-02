@@ -93,14 +93,12 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&newUser)
 	failOnError(err, "Failed to decode body")
 	
-	
-	//	Check the users table for the supplied phone number
+	//	Check both tables for the supplied phone number
 	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
 	failOnError(err, "Failed to prepare query")
 	var u_id int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&u_id)
-
 
 	queryString = "SELECT temp_u_id FROM temp_users WHERE phone_number = $1"
 	stmt, err = db.Prepare(queryString)
@@ -111,32 +109,25 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	if (u_id == 0 && temp_u_id == 0) {
 		//	Not present in either table
 		
-		//	token generation
 		var characterRunes = []rune("abcdefghijklmnopqrstuvwrxyz1234567890")
 		tokenArray := make([]rune, 6)
 		for i := range tokenArray {
 			tokenArray[i] = characterRunes[rand.Intn(len(characterRunes))]
 		}
-
 		token := string(tokenArray)
 
 		//	Insert the new row into the scratch table
 		queryString = "INSERT INTO temp_users(first_name, last_name, phone_number, token, init_time) VALUES($1, $2, $3, $4, current_timestamp)"
 		stmt, err = db.Prepare(queryString)
 		res, err := stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, token)
-		failGracefully(err, "Problem with insert query")
-
-		//	NEED TO FIX THIS STILL TOO
-		//	nil pointer reference here
+		failOnError(err, "Problem with insert query")
 		numRows, err := res.RowsAffected()
-
 		if numRows < 1 {
 			failOnError(err, "Unable to insert new user")
 		}
 
-
 	} else if (u_id == 0 && temp_u_id != 0) {
-		//	IS in users, not in scratch
+		//	In users, not in scratch
 
 	} else if (u_id != 0 && temp_u_id == 0) {
 		//	Not in users, is in scratch
