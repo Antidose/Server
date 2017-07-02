@@ -84,9 +84,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func regHandler(w http.ResponseWriter, r *http.Request) {
-
-	//	TODO: Actual Auth
-
 	decoder := json.NewDecoder(r.Body)
 	newUser := struct {
 		FirstName string `json:"first_name"`
@@ -95,10 +92,88 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	}{"", "", ""}
 	err := decoder.Decode(&newUser)
 	failOnError(err, "Failed to decode body")
-	queryString := "INSERT INTO users(first_name, last_name, phone_number, current_status) VALUES($1, $2, $3, $4)"
+	
+	
+	//	Check the users table for the supplied phone number
+	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, "active")
-	failOnError(err, "Failed to insert new user")
+	failOnError(err, "Failed to prepare query")
+	var u_id int
+	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&u_id)
+
+
+	queryString = "SELECT temp_u_id FROM temp_users WHERE phone_number = $1"
+	stmt, err = db.Prepare(queryString)
+	failOnError(err, "Error preparing query")
+	var temp_u_id int
+	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&temp_u_id)
+	
+	if (u_id == 0 && temp_u_id == 0) {
+		//	Not present in either table
+		
+		//	token generation
+		var characterRunes = []rune("abcdefghijklmnopqrstuvwrxyz1234567890")
+		tokenArray := make([]rune, 6)
+		for i := range tokenArray {
+			tokenArray[i] = characterRunes[rand.Intn(len(characterRunes))]
+		}
+
+		token := string(tokenArray)
+
+		//	Insert the new row into the scratch table
+		queryString = "INSERT INTO temp_users(first_name, last_name, phone_number, token, init_time) VALUES($1, $2, $3, $4, current_timestamp)"
+		stmt, err = db.Prepare(queryString)
+		res, err := stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, token)
+		failGracefully(err, "Problem with insert query")
+
+		//	NEED TO FIX THIS STILL TOO
+		//	nil pointer reference here
+		numRows, err := res.RowsAffected()
+
+		if numRows < 1 {
+			failOnError(err, "Unable to insert new user")
+		}
+
+
+	} else if (u_id == 0 && temp_u_id != 0) {
+		//	IS in users, not in scratch
+
+	} else if (u_id != 0 && temp_u_id == 0) {
+		//	Not in users, is in scratch
+
+	} else if (u_id != 0 && temp_u_id != 0) {
+		//	In scratch and users
+
+	}
+
+}
+
+func verifyHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	user := struct {
+		Token string `json:"token"`
+		PhoneNumber string `json:"phone_number"`
+	}{"", ""}
+	err := decoder.Decode(&user)
+
+	var serverToken string
+	queryString := "SELECT token FROM temp_users WHERE phone_number = ?"
+	err = db.QueryRow(queryString, user.PhoneNumber).Scan(&serverToken)
+
+	failOnError(err, "Query execution error")
+	
+	//if err == sql.ErrNoRows{
+		//	Send response indicating error
+	//} else {
+		//failOnError(err, "Problem selecting from scratch table")
+	//}
+
+	if user.Token == serverToken {
+		//	Move row to users table, delete temp_users row
+	} else {
+		//	Send response indicating failure
+	}
+
 }
 
 func postgresTest(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +229,7 @@ func initRoutes() {
 	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
+	http.HandleFunc("/verify", verifyHandler)
 	http.HandleFunc("/postgres", postgresTest)
 	http.HandleFunc("/alert", alertHandler)
 	http.ListenAndServe(port, nil)
