@@ -126,6 +126,11 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 			failOnError(err, "Unable to insert new user")
 		}
 
+		//	TODO: Send the text containing the token
+
+		//	Send response to the app
+		fmt.Fprintf(w, "Registation Success")
+
 	} else if (u_id == 0 && temp_u_id != 0) {
 		//	In users, not in scratch
 
@@ -141,28 +146,35 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 
 func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	user := struct {
+	Req := struct {
 		Token string `json:"token"`
 		PhoneNumber string `json:"phone_number"`
 	}{"", ""}
-	err := decoder.Decode(&user)
+	err := decoder.Decode(&Req)
 
-	var serverToken string
-	queryString := "SELECT token FROM temp_users WHERE phone_number = ?"
-	err = db.QueryRow(queryString, user.PhoneNumber).Scan(&serverToken)
+	User := struct {
+		FirstName string
+		LastName string
+		PhoneNumber string
+		Token string
+	}{"", "", "", ""}
 
-	failOnError(err, "Query execution error")
-	
-	//if err == sql.ErrNoRows{
-		//	Send response indicating error
-	//} else {
-		//failOnError(err, "Problem selecting from scratch table")
-	//}
+	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = $1"
+	stmt, err := db.Prepare(queryString)
+	failOnError(err, "Error preparing query")
+	err = stmt.QueryRow(Req.PhoneNumber).Scan(&User.FirstName, &User.LastName, &User.PhoneNumber, &User.Token)
 
-	if user.Token == serverToken {
-		//	Move row to users table, delete temp_users row
+	if User.Token == "" {
+		fmt.Fprintf(w, "Errror retreiving user row")
+		return
+	}
+
+	if Req.Token == User.Token {
+		//	Move row to users table, delete temp_users row, send resp indicating success
+		fmt.Fprintf(w, "Tokens match")
 	} else {
 		//	Send response indicating failure
+		fmt.Fprintf(w, "Tokens do not match")
 	}
 
 }
