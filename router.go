@@ -92,6 +92,11 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	}{"", "", ""}
 	err := decoder.Decode(&newUser)
 	failOnError(err, "Failed to decode body")
+
+	if (newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "") {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Bad request")
+	}
 	
 	//	Check both tables for the supplied phone number
 	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
@@ -170,8 +175,30 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if Req.Token == User.Token {
-		//	Move row to users table, delete temp_users row, send resp indicating success
-		fmt.Fprintf(w, "Tokens match")
+		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)"
+		stmt, err = db.Prepare(queryString)
+		failOnError(err, "Error preparing query")
+		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", User.Token)
+		failOnError(err, "Problem inserting new user")
+		numRows, err := res.RowsAffected()
+		if numRows < 1 {
+			fmt.Fprintf(w, "Error inserting new user")
+			return
+		}
+
+		queryString = "DELETE FROM temp_users WHERE phone_number = $1"
+		stmt, err = db.Prepare(queryString)
+		failOnError(err, "Error preparing query")
+		res, err = stmt.Exec(Req.PhoneNumber)
+		failOnError(err, "Problem deleting temp entry")
+		numRows, err = res.RowsAffected()
+		if numRows < 1 {
+			fmt.Fprintf(w, "Did not remove temp entry")
+			return
+		}
+
+		fmt.Fprintf(w, "New user verified")
+
 	} else {
 		//	Send response indicating failure
 		fmt.Fprintf(w, "Tokens do not match")
