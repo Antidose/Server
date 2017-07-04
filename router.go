@@ -133,6 +133,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token
 
 		//	Send response to the app
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Registation Success")
 
 	} else if userID == 0 && tempUserID != 0 {
@@ -180,6 +181,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		failOnError(err, "Problem inserting new user")
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
+			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "Error inserting new user")
 			return
 		}
@@ -191,14 +193,15 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		failOnError(err, "Problem deleting temp entry")
 		numRows, err = res.RowsAffected()
 		if numRows < 1 {
+			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "Did not remove temp entry")
 			return
 		}
-
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "New user verified")
 
 	} else {
-		//	Send response indicating failure
+		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "Tokens do not match")
 	}
 
@@ -237,7 +240,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	//TODO geojson for location
 	alert := struct {
 		IMEI     int    `json:"IMEI"`
-		location string `json:"locaion"`
+		Location string `json:"locaion"`
 	}{0, ""}
 	err := decoder.Decode(&alert)
 	failOnError(err, "Failed to decode body")
@@ -246,7 +249,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, $2, $3)"
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(alert.IMEI, alert.location, "now")
+	_, err = stmt.Exec(alert.IMEI, alert.Location, "now")
 	failOnError(err, "Failed to insert new user")
 }
 
