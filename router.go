@@ -19,6 +19,10 @@ var (
 
 var userAuthStore = make(map[string]string)
 
+func sendText(phoneNumber string, message string) {
+	antidoseTwilio.SendSMS(configuration.Twilio.Number, phoneNumber, message, "", "")
+}
+
 func textHandler(w http.ResponseWriter, r *http.Request) {
 	// Send a text to a user. Response is the code which is checked.
 	decoder := json.NewDecoder(r.Body)
@@ -28,7 +32,7 @@ func textHandler(w http.ResponseWriter, r *http.Request) {
 	userToken := minRand + rand.Intn(maxRand-minRand)
 
 	// Uncomment this out when we want to account send phone verification. It works.
-	//antidoseTwilio.SendSMS(antidoseNumber, cmd.Number, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", userToken), "", "")
+	sendText(cmd.Number, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", userToken))
 	fmt.Fprintf(w, "%d", userToken)
 }
 
@@ -86,34 +90,34 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 func regHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	newUser := struct {
-		FirstName string `json:"first_name"`
-		LastName string `json:"last_name"`
+		FirstName   string `json:"first_name"`
+		LastName    string `json:"last_name"`
 		PhoneNumber string `json:"phone_number"`
 	}{"", "", ""}
 	err := decoder.Decode(&newUser)
 	failOnError(err, "Failed to decode body")
 
-	if (newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "") {
+	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Bad request")
 	}
-	
+
 	//	Check both tables for the supplied phone number
-	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
+	queryString := "SELECT userID FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
 	failOnError(err, "Failed to prepare query")
-	var u_id int
-	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&u_id)
+	var userID int
+	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&userID)
 
-	queryString = "SELECT temp_u_id FROM temp_users WHERE phone_number = $1"
+	queryString = "SELECT tempUserID FROM temp_users WHERE phone_number = $1"
 	stmt, err = db.Prepare(queryString)
 	failOnError(err, "Error preparing query")
-	var temp_u_id int
-	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&temp_u_id)
-	
-	if (u_id == 0 && temp_u_id == 0) {
+	var tempUserID int
+	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&tempUserID)
+
+	if userID == 0 && tempUserID == 0 {
 		//	Not present in either table
-		
+
 		var characterRunes = []rune("abcdefghijklmnopqrstuvwrxyz1234567890")
 		tokenArray := make([]rune, 6)
 		for i := range tokenArray {
@@ -131,37 +135,36 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 			failOnError(err, "Unable to insert new user")
 		}
 
-		//	TODO: Send the text containing the token
+		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %s", token)) // Send the text containing the token
 
 		//	Send response to the app
 		fmt.Fprintf(w, "Registation Success")
 
-	} else if (u_id == 0 && temp_u_id != 0) {
+	} else if userID == 0 && tempUserID != 0 {
 		//	In users, not in scratch
 
-	} else if (u_id != 0 && temp_u_id == 0) {
+	} else if userID != 0 && tempUserID == 0 {
 		//	Not in users, is in scratch
 
-	} else if (u_id != 0 && temp_u_id != 0) {
+	} else if userID != 0 && tempUserID != 0 {
 		//	In scratch and users
 
 	}
-
 }
 
 func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	Req := struct {
-		Token string `json:"token"`
+		Token       string `json:"token"`
 		PhoneNumber string `json:"phone_number"`
 	}{"", ""}
 	err := decoder.Decode(&Req)
 
 	User := struct {
-		FirstName string
-		LastName string
+		FirstName   string
+		LastName    string
 		PhoneNumber string
-		Token string
+		Token       string
 	}{"", "", "", ""}
 
 	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = $1"
@@ -237,10 +240,10 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	//TODO geojson for location
-	alert := struct{
-		IMEI int `json:"IMEI"`
+	alert := struct {
+		IMEI     int    `json:"IMEI"`
 		location string `json:"locaion"`
-	}{0,""}
+	}{0, ""}
 	err := decoder.Decode(&alert)
 	failOnError(err, "Failed to decode body")
 
