@@ -230,7 +230,7 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		numRows++
 	}
-
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Query ran successfully!")
 
 }
