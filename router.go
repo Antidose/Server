@@ -118,12 +118,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	if userID == 0 && tempUserID == 0 {
 		//	Not present in either table
 
-		var characterRunes = []rune("abcdefghijklmnopqrstuvwrxyz1234567890")
-		tokenArray := make([]rune, 6)
-		for i := range tokenArray {
-			tokenArray[i] = characterRunes[rand.Intn(len(characterRunes))]
-		}
-		token := string(tokenArray)
+		token := minRand + rand.Intn(maxRand-minRand)
 
 		//	Insert the new row into the scratch table
 		queryString = "INSERT INTO temp_users(first_name, last_name, phone_number, token, init_time) VALUES($1, $2, $3, $4, current_timestamp)"
@@ -135,7 +130,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 			failOnError(err, "Unable to insert new user")
 		}
 
-		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %s", token)) // Send the text containing the token
+		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token
 
 		//	Send response to the app
 		fmt.Fprintf(w, "Registation Success")
