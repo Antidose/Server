@@ -7,8 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/sfreiberg/gotwilio"
 	"database/sql"
+
+	"github.com/sfreiberg/gotwilio"
 )
 
 // Configuration : Core config structure
@@ -59,7 +60,7 @@ func loadTwilio() *gotwilio.Twilio {
 	return gotwilio.NewTwilioClient(configuration.Twilio.Sid, configuration.Twilio.Token)
 }
 
-func loadDB() *sql.DB{
+func loadDB() *sql.DB {
 	const (
 		host     = "localhost"
 		port     = 5432

@@ -1,15 +1,22 @@
-CREATE TYPE user_status AS ENUM ('active', 'inactive', 'deleted');
+CREATE TYPE user_status AS ENUM ('active', 'inactive', 'deleted', 'unverified');
 
 CREATE TABLE IF NOT EXISTS users (
-	u_id                serial ,
+	u_id                serial PRIMARY KEY,
 	first_name          VARCHAR(20),
 	last_name           VARCHAR(20),
-	phone_number        VARCHAR(16),
+	phone_number        VARCHAR(16) UNIQUE,
 	current_status      user_status,
 	token				VARCHAR(6)
 );
 
-ALTER TABLE users ADD PRIMARY KEY (phone_number);
+CREATE TABLE IF NOT EXISTS temp_users (
+	temp_u_id			serial,
+	first_name			VARCHAR(20),
+	last_name			VARCHAR(20),
+	phone_number		VARCHAR(16) PRIMARY KEY,
+	token				VARCHAR(6),
+	init_time			TIMESTAMP WITHOUT TIME ZONE
+);
 
 CREATE TABLE IF NOT EXISTS incidents (
 	inc_id              serial PRIMARY KEY,

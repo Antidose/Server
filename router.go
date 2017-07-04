@@ -19,6 +19,10 @@ var (
 
 var userAuthStore = make(map[string]string)
 
+func sendText(phoneNumber string, message string) {
+	antidoseTwilio.SendSMS(configuration.Twilio.Number, phoneNumber, message, "", "")
+}
+
 func textHandler(w http.ResponseWriter, r *http.Request) {
 	// Send a text to a user. Response is the code which is checked.
 	decoder := json.NewDecoder(r.Body)
@@ -28,7 +32,7 @@ func textHandler(w http.ResponseWriter, r *http.Request) {
 	userToken := minRand + rand.Intn(maxRand-minRand)
 
 	// Uncomment this out when we want to account send phone verification. It works.
-	//antidoseTwilio.SendSMS(antidoseNumber, cmd.Number, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", userToken), "", "")
+	sendText(cmd.Number, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", userToken))
 	fmt.Fprintf(w, "%d", userToken)
 }
 
@@ -84,21 +88,123 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func regHandler(w http.ResponseWriter, r *http.Request) {
-
-	//	TODO: Actual Auth
-
 	decoder := json.NewDecoder(r.Body)
 	newUser := struct {
-		FirstName string `json:"first_name"`
-		LastName string `json:"last_name"`
+		FirstName   string `json:"first_name"`
+		LastName    string `json:"last_name"`
 		PhoneNumber string `json:"phone_number"`
 	}{"", "", ""}
 	err := decoder.Decode(&newUser)
 	failOnError(err, "Failed to decode body")
-	queryString := "INSERT INTO users(first_name, last_name, phone_number, current_status) VALUES($1, $2, $3, $4)"
+
+	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Bad request")
+	}
+
+	//	Check both tables for the supplied phone number
+	queryString := "SELECT userID FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, "active")
-	failOnError(err, "Failed to insert new user")
+	failOnError(err, "Failed to prepare query")
+	var userID int
+	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&userID)
+
+	queryString = "SELECT tempUserID FROM temp_users WHERE phone_number = $1"
+	stmt, err = db.Prepare(queryString)
+	failOnError(err, "Error preparing query")
+	var tempUserID int
+	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&tempUserID)
+
+	if userID == 0 && tempUserID == 0 {
+		//	Not present in either table
+
+		token := minRand + rand.Intn(maxRand-minRand)
+
+		//	Insert the new row into the scratch table
+		queryString = "INSERT INTO temp_users(first_name, last_name, phone_number, token, init_time) VALUES($1, $2, $3, $4, current_timestamp)"
+		stmt, err = db.Prepare(queryString)
+		res, err := stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, token)
+		failOnError(err, "Problem with insert query")
+		numRows, err := res.RowsAffected()
+		if numRows < 1 {
+			failOnError(err, "Unable to insert new user")
+		}
+
+		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token
+
+		//	Send response to the app
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Registation Success")
+
+	} else if userID == 0 && tempUserID != 0 {
+		//	In users, not in scratch
+
+	} else if userID != 0 && tempUserID == 0 {
+		//	Not in users, is in scratch
+
+	} else if userID != 0 && tempUserID != 0 {
+		//	In scratch and users
+
+	}
+}
+
+func verifyHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	Req := struct {
+		Token       string `json:"token"`
+		PhoneNumber string `json:"phone_number"`
+	}{"", ""}
+	err := decoder.Decode(&Req)
+
+	User := struct {
+		FirstName   string
+		LastName    string
+		PhoneNumber string
+		Token       string
+	}{"", "", "", ""}
+
+	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = $1"
+	stmt, err := db.Prepare(queryString)
+	failOnError(err, "Error preparing query")
+	err = stmt.QueryRow(Req.PhoneNumber).Scan(&User.FirstName, &User.LastName, &User.PhoneNumber, &User.Token)
+
+	if User.Token == "" {
+		fmt.Fprintf(w, "Errror retreiving user row")
+		return
+	}
+
+	if Req.Token == User.Token {
+		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)"
+		stmt, err = db.Prepare(queryString)
+		failOnError(err, "Error preparing query")
+		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", User.Token)
+		failOnError(err, "Problem inserting new user")
+		numRows, err := res.RowsAffected()
+		if numRows < 1 {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "Error inserting new user")
+			return
+		}
+
+		queryString = "DELETE FROM temp_users WHERE phone_number = $1"
+		stmt, err = db.Prepare(queryString)
+		failOnError(err, "Error preparing query")
+		res, err = stmt.Exec(Req.PhoneNumber)
+		failOnError(err, "Problem deleting temp entry")
+		numRows, err = res.RowsAffected()
+		if numRows < 1 {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "Did not remove temp entry")
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "New user verified")
+
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "Tokens do not match")
+	}
+
 }
 
 func postgresTest(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +230,7 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		numRows++
 	}
-
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Query ran successfully!")
 
 }
@@ -132,10 +238,10 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	//TODO geojson for location
-	alert := struct{
-		IMEI int `json:"IMEI"`
-		location string `json:"locaion"`
-	}{0,""}
+	alert := struct {
+		IMEI     int    `json:"IMEI"`
+		Location string `json:"locaion"`
+	}{0, ""}
 	err := decoder.Decode(&alert)
 	failOnError(err, "Failed to decode body")
 
@@ -143,7 +249,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, $2, $3)"
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(alert.IMEI, alert.location, "now")
+	_, err = stmt.Exec(alert.IMEI, alert.Location, "now")
 	failOnError(err, "Failed to insert new user")
 }
 
@@ -154,6 +260,7 @@ func initRoutes() {
 	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
+	http.HandleFunc("/verify", verifyHandler)
 	http.HandleFunc("/postgres", postgresTest)
 	http.HandleFunc("/alert", alertHandler)
 	http.ListenAndServe(port, nil)
