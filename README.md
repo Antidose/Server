@@ -1,5 +1,7 @@
 # Server
 
+BEFORE RUNNING, MAKE SURE YOU HAVE THE CONFIG FOLDER.
+
 How to run:
 
 `go run *.go`
