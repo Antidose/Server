@@ -15,6 +15,7 @@ import (
 // Configuration : Core config structure
 type Configuration struct {
 	Twilio TwilioKey
+	DB DbCreds
 }
 
 // TwilioKey : Config strucuture for Twilio
@@ -22,6 +23,14 @@ type TwilioKey struct {
 	Sid    string
 	Token  string
 	Number string
+}
+
+type DbCreds struct {
+	Host string
+	Port int
+	User string
+	Pass string
+	DbName string
 }
 
 // Globals
@@ -62,14 +71,7 @@ func loadTwilio() *gotwilio.Twilio {
 }
 
 func loadDB() *sql.DB {
-	const (
-		host     = "localhost"
-		port     = 5432
-		user     = "tanner"
-		password = "tanner"
-		dbname   = "antidose"
-	)
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", configuration.DB.Host, configuration.DB.Port, configuration.DB.User, configuration.DB.Pass, configuration.DB.DbName)
 	db, err := sql.Open("postgres", psqlInfo)
 	failOnError(err, "Failed to open Postgres")
 
