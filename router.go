@@ -116,8 +116,8 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	var tempUserID int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&tempUserID)
 
-	if (userID == 0 && tempUserID == 0) || (userID == 0 && tempUserID != 0) {
-		//	Not present in either table, or present in users but not in the scratch table
+	if tempUserID == 0 {
+		//	Not in temp
 
 		token := minRand + rand.Intn(maxRand-minRand)
 
@@ -129,6 +129,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
 			failOnError(err, "Unable to insert new user")
+			return
 		}
 
 		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token
@@ -137,13 +138,34 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Registation Success")
 
-	} else if userID != 0 && tempUserID == 0 {
-		//	Not in users, is in scratch
+	} else {
+		//	Is in temp
 
-	} else if userID != 0 && tempUserID != 0 {
-		//	In scratch and users
+		token := minRand + rand.Intn(maxRand-minRand)
+
+		queryString = "UPDATE temp_users SET token = $1 WHERE phone_number = $2"
+		stmt, err = db.Prepare(queryString)
+		res, err := stmt.Exec(token, newUser.PhoneNumber)
+		failOnError(err, "Problem with update query")
+		numRows, err := res.RowsAffected()
+		if numRows < 1 {
+			failOnError(err, "Unable to update new user")
+			return
+		}
+
+		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token
+
+		if userID != 0 {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, "New token sent")
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Account unverified")
 
 	}
+
 }
 
 func verifyHandler(w http.ResponseWriter, r *http.Request) {
@@ -172,7 +194,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if Req.Token == User.Token {
-		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)"
+		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)" + 
+						"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
 		failOnError(err, "Error preparing query")
 		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", User.Token)
