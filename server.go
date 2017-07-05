@@ -46,10 +46,11 @@ func failGracefully(err error, msg string) {
 }
 
 func loadConfig() Configuration {
-	file, _ := os.Open("./config/conf.json")
+	file, err := os.Open("./config/conf.json")
+	failOnError(err, "Config json not found. Make sure it is present.")
 	decoder := json.NewDecoder(file)
 	configuration := Configuration{}
-	err := decoder.Decode(&configuration)
+	err = decoder.Decode(&configuration)
 	if err != nil {
 		fmt.Println("error:", err)
 	}
