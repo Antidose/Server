@@ -100,23 +100,24 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Bad request")
+		return
 	}
 
 	//	Check both tables for the supplied phone number
-	queryString := "SELECT userID FROM users WHERE phone_number = $1"
+	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
 	failOnError(err, "Failed to prepare query")
 	var userID int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&userID)
 
-	queryString = "SELECT tempUserID FROM temp_users WHERE phone_number = $1"
+	queryString = "SELECT temp_u_id FROM temp_users WHERE phone_number = $1"
 	stmt, err = db.Prepare(queryString)
 	failOnError(err, "Error preparing query")
 	var tempUserID int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&tempUserID)
 
-	if userID == 0 && tempUserID == 0 {
-		//	Not present in either table
+	if (userID == 0 && tempUserID == 0) || (userID == 0 && tempUserID != 0) {
+		//	Not present in either table, or present in users but not in the scratch table
 
 		token := minRand + rand.Intn(maxRand-minRand)
 
@@ -135,9 +136,6 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		//	Send response to the app
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Registation Success")
-
-	} else if userID == 0 && tempUserID != 0 {
-		//	In users, not in scratch
 
 	} else if userID != 0 && tempUserID == 0 {
 		//	Not in users, is in scratch
