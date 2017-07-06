@@ -1,2 +1,2 @@
-server: go run server.go
-web: go run router.go
+server: server
+web: router
