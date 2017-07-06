@@ -1,2 +1,1 @@
-server: server
-web: router
+web: server -port=8088
