@@ -72,7 +72,7 @@ func loadTwilio() *gotwilio.Twilio {
 
 func loadDB() *sql.DB {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", configuration.DB.Host, configuration.DB.Port, configuration.DB.User, configuration.DB.Pass, configuration.DB.DbName)
-	db, err := sql.Open("postgres", psqlInfo)
+	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	failOnError(err, "Failed to open Postgres")
 
 	err = db.Ping()
