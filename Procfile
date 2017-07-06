@@ -1,1 +1,1 @@
-web: Server -port=8088
+web: Server
