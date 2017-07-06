@@ -6,7 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-
+	"os"
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
 )
@@ -275,7 +275,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func initRoutes() {
-	port := s.Getenv("PORT")
+	port := os.Getenv("PORT")
 	if port == "" {
 		port = ":8088"
 	}
@@ -287,5 +287,5 @@ func initRoutes() {
 	http.HandleFunc("/verify", verifyHandler)
 	http.HandleFunc("/postgres", postgresTest)
 	http.HandleFunc("/alert", alertHandler)
-	http.ListenAndServe(GetPort(), nil)
+	http.ListenAndServe(port, nil)
 }
