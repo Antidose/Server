@@ -275,7 +275,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func initRoutes() {
-	port := ":8088"
+	port := s.Getenv("PORT")
+	if port == "" {
+		port = ":8088"
+	}
 	fmt.Printf("Started watching on port %s\n", port)
 	http.HandleFunc("/", mainHandler)
 	http.HandleFunc("/auth", authHandler)
@@ -284,5 +287,5 @@ func initRoutes() {
 	http.HandleFunc("/verify", verifyHandler)
 	http.HandleFunc("/postgres", postgresTest)
 	http.HandleFunc("/alert", alertHandler)
-	http.ListenAndServe(port, nil)
+	http.ListenAndServe(GetPort(), nil)
 }
