@@ -275,9 +275,11 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func initRoutes() {
-	port := os.Getenv("PORT")
+	port := os.Getenv("PORT") 
 	if port == "" {
 		port = ":8088"
+	}else{
+		port = ":" + port
 	}
 	fmt.Printf("Started watching on port %s\n", port)
 	http.HandleFunc("/", mainHandler)
