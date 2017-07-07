@@ -94,6 +94,7 @@ func loadDB() *sql.DB {
 func main() {
 	if heroku != "" {
 		isHeroku = true
+		fmt.Printf("this is running on heroku")
 	}
 	rand.Seed(time.Now().UTC().UnixNano())
 	initRoutes()
