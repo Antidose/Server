@@ -55,7 +55,7 @@ func failGracefully(err error, msg string) {
 	}
 }
 
-func checkHeroku() {
+func checkHeroku() bool {
 	if os.Getenv("IS_HEROKU") != "" {
 		fmt.Printf("this is running on heroku")
 		return true
