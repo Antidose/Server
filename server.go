@@ -35,12 +35,11 @@ type DbCreds struct {
 
 // Globals
 var (
-	isHeroku       bool   = false
-	heroku         string = os.Getenv("IS_HEROKU")
-	done                  = make(chan struct{})
-	configuration         = loadConfig()
-	antidoseTwilio        = loadTwilio()
-	db                    = loadDB()
+	isHeroku       = checkHeroku()
+	done           = make(chan struct{})
+	configuration  = loadConfig()
+	antidoseTwilio = loadTwilio()
+	db             = loadDB()
 )
 
 func failOnError(err error, msg string) {
@@ -54,6 +53,14 @@ func failGracefully(err error, msg string) {
 	if err != nil {
 		fmt.Printf("%s: %s", msg, err)
 	}
+}
+
+func checkHeroku() {
+	if os.Getenv("IS_HEROKU") != "" {
+		fmt.Printf("this is running on heroku")
+		return true
+	}
+	return false
 }
 
 func loadConfig() Configuration {
@@ -92,10 +99,6 @@ func loadDB() *sql.DB {
 }
 
 func main() {
-	if heroku != "" {
-		isHeroku = true
-		fmt.Printf("this is running on heroku")
-	}
 	rand.Seed(time.Now().UTC().UnixNano())
 	initRoutes()
 	<-done
