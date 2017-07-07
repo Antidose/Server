@@ -133,6 +133,8 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
 			failOnError(err, "Unable to insert new user")
+			w.WriteHeader(http.StatusConflict)
+			fmt.Fprintf(w, "Server Error")
 			return
 		}
 
@@ -154,6 +156,8 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
 			failOnError(err, "Unable to update new user")
+			w.WriteHeader(http.StatusConflict)
+			fmt.Fprintf(w, "Server Error")
 			return
 		}
 
@@ -180,6 +184,12 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}{"", ""}
 	err := decoder.Decode(&Req)
 
+	if Req.Token == "" || Req.PhoneNumber == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Bad request")
+		return
+	}
+
 	User := struct {
 		FirstName   string
 		LastName    string
@@ -193,7 +203,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	err = stmt.QueryRow(Req.PhoneNumber).Scan(&User.FirstName, &User.LastName, &User.PhoneNumber, &User.Token)
 
 	if User.Token == "" {
-		fmt.Fprintf(w, "Errror retreiving user row")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "Attempting to verify user that does not exist")
 		return
 	}
 
@@ -206,7 +217,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		failOnError(err, "Problem inserting new user")
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusConflict)
 			fmt.Fprintf(w, "Error inserting new user")
 			return
 		}
