@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
@@ -102,6 +104,20 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	failOnError(err, "Failed to decode body")
 
 	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Bad request")
+		return
+	}
+
+	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Bad request")
+		return
+	}
+
+	newUser.PhoneNumber = strings.Replace(newUser.PhoneNumber, "-", "", -1)
+	_, err = strconv.Atoi(newUser.PhoneNumber)
+	if (err != nil) || (len(newUser.PhoneNumber) < 10 || len(newUser.PhoneNumber) > 16) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Bad request")
 		return
