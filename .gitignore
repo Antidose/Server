@@ -2,3 +2,4 @@ Server
 .idea
 conf.json
 config/
+.DS_Store

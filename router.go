@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
@@ -20,6 +21,9 @@ var (
 var userAuthStore = make(map[string]string)
 
 func sendText(phoneNumber string, message string) {
+	if isHeroku {
+		phoneNumber = os.Getenv("TWILIO_NUMBER")
+	}
 	antidoseTwilio.SendSMS(configuration.Twilio.Number, phoneNumber, message, "", "")
 }
 
@@ -194,8 +198,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if Req.Token == User.Token {
-		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)" + 
-						"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, token = $5 WHERE EXCLUDED.phone_number = $3"
+		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)" +
+			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
 		failOnError(err, "Error preparing query")
 		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", User.Token)
@@ -275,7 +279,12 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func initRoutes() {
-	port := ":8088"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = ":8088"
+	} else {
+		port = ":" + port
+	}
 	fmt.Printf("Started watching on port %s\n", port)
 	http.HandleFunc("/", mainHandler)
 	http.HandleFunc("/auth", authHandler)
