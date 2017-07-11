@@ -46,3 +46,21 @@ CREATE TABLE IF NOT EXISTS location (
 );
 
 SELECT AddGeometryColumn('location', 'help_location', 4326, 'POINT', 2);
+
+
+--	Add spatial index
+CREATE INDEX ON location USING GIST(help_location);
+
+
+--	Function to execute nearest neighbour query
+--	parameter 1 is the requester location, parameter 2 is the search radius
+CREATE OR REPLACE FUNCTION nearest_helpers(geometry(POINT, 4326), int)
+RETURNS TABLE (
+	candidate_id		INTEGER,
+	distance			INTEGER,
+)
+AS $$
+BEGIN
+	--	Implementation goes here
+END;
+$$	LANGUAGE plpgsql;
