@@ -54,7 +54,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		User string
 	}{"", ""}
 	err := decoder.Decode(&cmd)
-	failOnError(err, "Failed to decode request")
+	failGracefully(err, "Failed to decode request")
 	pass, found := userAuthStore[cmd.User]
 	if !found {
 		w.WriteHeader(http.StatusBadRequest)
@@ -84,7 +84,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// frontend handshake to get user and hook them into the userMap for sockets
 	_, message, err := conn.ReadMessage()
-	failOnError(err, "Failed to handshake")
+	failGracefully(err, "Failed to handshake")
 	fmt.Printf("Handshake from client is %s\n", message)
 	userSocket, found := userSocketmap[string(message)]
 	if found {
@@ -101,7 +101,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber string `json:"phone_number"`
 	}{"", "", ""}
 	err := decoder.Decode(&newUser)
-	failOnError(err, "Failed to decode body")
+	failGracefully(err, "Failed to decode body")
 
 	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -126,13 +126,13 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	//	Check both tables for the supplied phone number
 	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
-	failOnError(err, "Failed to prepare query")
+	failGracefully(err, "Failed to prepare query")
 	var userID int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&userID)
 
 	queryString = "SELECT temp_u_id FROM temp_users WHERE phone_number = $1"
 	stmt, err = db.Prepare(queryString)
-	failOnError(err, "Error preparing query")
+	failGracefully(err, "Error preparing query")
 	var tempUserID int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&tempUserID)
 
@@ -145,10 +145,10 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "INSERT INTO temp_users(first_name, last_name, phone_number, token, init_time) VALUES($1, $2, $3, $4, current_timestamp)"
 		stmt, err = db.Prepare(queryString)
 		res, err := stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, token)
-		failOnError(err, "Problem with insert query")
+		failGracefully(err, "Problem with insert query")
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
-			failOnError(err, "Unable to insert new user")
+			failGracefully(err, "Unable to insert new user")
 			w.WriteHeader(http.StatusConflict)
 			fmt.Fprintf(w, "Server Error")
 			return
@@ -168,10 +168,10 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "UPDATE temp_users SET token = $1 WHERE phone_number = $2"
 		stmt, err = db.Prepare(queryString)
 		res, err := stmt.Exec(token, newUser.PhoneNumber)
-		failOnError(err, "Problem with update query")
+		failGracefully(err, "Problem with update query")
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
-			failOnError(err, "Unable to update new user")
+			failGracefully(err, "Unable to update new user")
 			w.WriteHeader(http.StatusConflict)
 			fmt.Fprintf(w, "Server Error")
 			return
@@ -215,7 +215,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
-	failOnError(err, "Error preparing query")
+	failGracefully(err, "Error preparing query")
 	err = stmt.QueryRow(Req.PhoneNumber).Scan(&User.FirstName, &User.LastName, &User.PhoneNumber, &User.Token)
 
 	if User.Token == "" {
@@ -228,9 +228,9 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)" +
 			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
-		failOnError(err, "Error preparing query")
+		failGracefully(err, "Error preparing query")
 		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", User.Token)
-		failOnError(err, "Problem inserting new user")
+		failGracefully(err, "Problem inserting new user")
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
 			w.WriteHeader(http.StatusConflict)
@@ -240,9 +240,9 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 		queryString = "DELETE FROM temp_users WHERE phone_number = $1"
 		stmt, err = db.Prepare(queryString)
-		failOnError(err, "Error preparing query")
+		failGracefully(err, "Error preparing query")
 		res, err = stmt.Exec(Req.PhoneNumber)
-		failOnError(err, "Problem deleting temp entry")
+		failGracefully(err, "Problem deleting temp entry")
 		numRows, err = res.RowsAffected()
 		if numRows < 1 {
 			w.WriteHeader(http.StatusNotFound)
@@ -265,7 +265,7 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 	cmd := struct{ Command string }{""}
 	err := decoder.Decode(&cmd)
 	fmt.Println(cmd)
-	failOnError(err, "Failed to decode body")
+	failGracefully(err, "Failed to decode body")
 
 	if cmd.Command == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -275,7 +275,7 @@ func postgresTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := db.Query(cmd.Command)
-	failOnError(err, "Failed in query")
+	failGracefully(err, "Failed in query")
 	defer rows.Close()
 
 	numRows := 0
@@ -295,14 +295,14 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		Location string `json:"locaion"`
 	}{0, ""}
 	err := decoder.Decode(&alert)
-	failOnError(err, "Failed to decode body")
+	failGracefully(err, "Failed to decode body")
 
 	//TODO socket
 
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, $2, $3)"
 	stmt, err := db.Prepare(queryString)
 	_, err = stmt.Exec(alert.IMEI, alert.Location, "now")
-	failOnError(err, "Failed to insert new user")
+	failGracefully(err, "Failed to insert new user")
 }
 
 func initRoutes() {
