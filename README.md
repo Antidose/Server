@@ -1,5 +1,11 @@
 # Server
 
+Required: Docker and make
+
+##Setup postgres:
+
+`make postgres`
+
 BEFORE RUNNING, MAKE SURE YOU HAVE THE CONFIG FOLDER.
 
 How to run:
