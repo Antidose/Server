@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
 	last_name           VARCHAR(20),
 	phone_number        VARCHAR(16) UNIQUE,
 	current_status      user_status,
-	token				VARCHAR(6)
+  api_token           VARCHAR(16)
 );
 
 CREATE TABLE IF NOT EXISTS temp_users (

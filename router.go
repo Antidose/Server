@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
+	"time"
 )
 
 var (
@@ -19,6 +20,32 @@ var (
 	maxRand = 999999
 	minRand = 100000
 )
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+var src = rand.NewSource(time.Now().UnixNano())
+
+func randString(n int) string {
+	b := make([]byte, n)
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return string(b)
+}
 
 var userAuthStore = make(map[string]string)
 
@@ -49,28 +76,6 @@ func textHandler(w http.ResponseWriter, r *http.Request) {
 
 func mainHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "welcome to antidose")
-}
-
-func authHandler(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-
-	cmd := struct {
-		Pass string
-		User string
-	}{"", ""}
-	err := decoder.Decode(&cmd)
-
-	if err != nil{
-		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
-		return
-	}
-
-	pass, found := userAuthStore[cmd.User]
-	if !found || pass != cmd.Pass {
-		failWithStatusCode(err, "Incorrect Username / Password combination", w, http.StatusForbidden)
-		return
-	}
-	fmt.Fprintf(w, "User %s successfully logged in", cmd.User)
 }
 
 var upgrader = websocket.Upgrader{
@@ -170,7 +175,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 
 		//	Send response to the app
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Registation Success")
+		fmt.Fprintf(w, "Registation Recieved. Need to verify")
 
 	} else {
 		//	Is in temp
@@ -187,6 +192,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
 			failWithStatusCode(err, "Unable to update new user", w, http.StatusConflict)
+			return
 		}
 
 		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token
@@ -246,14 +252,15 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if Req.Token == User.Token {
-		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)" +
-			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, token = $5 WHERE EXCLUDED.phone_number = $3"
+		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, api_token) VALUES($1, $2, $3, $4, $5)" +
+			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, api_token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
 		if err != nil{
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
-		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", User.Token)
+		var api_token = randString(16)
+		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", api_token)
 		if err != nil{
 			failWithStatusCode(err, "Error Inserting User", w, http.StatusInternalServerError)
 			return
@@ -281,7 +288,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "New user verified")
+		fmt.Fprintf(w, "{\"api_token\":\"%s\"}", api_token)
 
 	} else {
 		failWithStatusCode(err, "Token does not match", w, http.StatusUnauthorized)
@@ -322,7 +329,6 @@ func initRoutes() {
 	}
 	fmt.Printf("Started watching on port %s\n", port)
 	http.HandleFunc("/", mainHandler)
-	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
