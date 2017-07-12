@@ -259,33 +259,6 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func postgresTest(w http.ResponseWriter, r *http.Request) {
-
-	decoder := json.NewDecoder(r.Body)
-	cmd := struct{ Command string }{""}
-	err := decoder.Decode(&cmd)
-	fmt.Println(cmd)
-	failGracefully(err, "Failed to decode body")
-
-	if cmd.Command == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Bad command")
-
-		return
-	}
-
-	rows, err := db.Query(cmd.Command)
-	failGracefully(err, "Failed in query")
-	defer rows.Close()
-
-	numRows := 0
-	for rows.Next() {
-		numRows++
-	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Query ran successfully!")
-
-}
 
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
