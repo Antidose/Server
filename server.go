@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/sfreiberg/gotwilio"
+	"net/http"
 )
 
 // Configuration : Core config structure
@@ -46,6 +47,14 @@ func failOnError(err error, msg string) {
 	if err != nil {
 		fmt.Printf("%s: %s", msg, err)
 		panic(err)
+	}
+}
+
+func failWithStatusCode(err error, msg string, w http.ResponseWriter, statusCode int) {
+	if err != nil {
+		failGracefully(err, msg)
+		w.WriteHeader(statusCode)
+		fmt.Fprintf(w, msg)
 	}
 }
 
