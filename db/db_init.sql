@@ -1,3 +1,6 @@
+CREATE USER anti;
+ALTER USER anti WITH PASSWORD 'naloxone499';
+
 CREATE TYPE user_status AS ENUM ('active', 'inactive', 'deleted', 'unverified');
 
 CREATE TABLE IF NOT EXISTS users (
