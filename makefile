@@ -16,8 +16,8 @@ install-postgres:
 		-d -p 5432:5432 mdillon/postgis
 	
 config-postgres:
-	@-psql -h localhost -p 5432 -U postgres -f db/db_init.sql	
-
+	@-psql -h localhost -p 5432 -U postgres -f db/db_init.sql
+	@-psql -h localhost -p 5432 -U postgres -d template1 -c "ALTER DATABASE \"postgres\" RENAME TO \"antidose\""
 
 clean:
 	@docker rm -f antidose-pg
