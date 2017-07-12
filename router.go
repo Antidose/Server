@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	
 	"math/rand"
 	"net/http"
 	"os"
@@ -34,7 +34,12 @@ func textHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	cmd := struct{ Number string }{""}
 	err := decoder.Decode(&cmd)
-	failGracefully(err, "Failed to decode phone number")
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
 	userToken := minRand + rand.Intn(maxRand-minRand)
 
 	// Uncomment this out when we want to account send phone verification. It works.
@@ -54,16 +59,15 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		User string
 	}{"", ""}
 	err := decoder.Decode(&cmd)
-	failOnError(err, "Failed to decode request")
-	pass, found := userAuthStore[cmd.User]
-	if !found {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "User %s does not exist", cmd.User) // SET THE RIGHT STATUS CODES!
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
-	if pass != cmd.Pass {
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintf(w, "Password for User %s is incorrect", cmd.User)
+
+	pass, found := userAuthStore[cmd.User]
+	if !found || pass != cmd.Pass {
+		failWithStatusCode(err, "Incorrect Username / Password combination", w, http.StatusForbidden)
 		return
 	}
 	fmt.Fprintf(w, "User %s successfully logged in", cmd.User)
@@ -78,13 +82,16 @@ var userSocketmap = make(map[string]*websocket.Conn)
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 	// frontend handshake to get user and hook them into the userMap for sockets
 	_, message, err := conn.ReadMessage()
-	failOnError(err, "Failed to handshake")
+	if err != nil{
+		failWithStatusCode(err, "Failed to handshake", w, http.StatusInternalServerError)
+		return
+	}
 	fmt.Printf("Handshake from client is %s\n", message)
 	userSocket, found := userSocketmap[string(message)]
 	if found {
@@ -101,38 +108,39 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber string `json:"phone_number"`
 	}{"", "", ""}
 	err := decoder.Decode(&newUser)
-	failOnError(err, "Failed to decode body")
 
-	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Bad request")
-		return
-	}
-
-	if newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Bad request")
+	if err != nil || newUser.FirstName == "" || newUser.LastName == "" || newUser.PhoneNumber == "" {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
 	newUser.PhoneNumber = strings.Replace(newUser.PhoneNumber, "-", "", -1)
 	_, err = strconv.Atoi(newUser.PhoneNumber)
 	if (err != nil) || (len(newUser.PhoneNumber) < 10 || len(newUser.PhoneNumber) > 16) {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Bad request")
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
 	//	Check both tables for the supplied phone number
 	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
-	failOnError(err, "Failed to prepare query")
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
 	var userID int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&userID)
 
 	queryString = "SELECT temp_u_id FROM temp_users WHERE phone_number = $1"
 	stmt, err = db.Prepare(queryString)
-	failOnError(err, "Error preparing query")
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
 	var tempUserID int
 	err = stmt.QueryRow(newUser.PhoneNumber).Scan(&tempUserID)
 
@@ -145,12 +153,16 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "INSERT INTO temp_users(first_name, last_name, phone_number, token, init_time) VALUES($1, $2, $3, $4, current_timestamp)"
 		stmt, err = db.Prepare(queryString)
 		res, err := stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, token)
-		failOnError(err, "Problem with insert query")
+
+		if err != nil{
+			failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+			return
+		}
+
 		numRows, err := res.RowsAffected()
+
 		if numRows < 1 {
-			failOnError(err, "Unable to insert new user")
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprintf(w, "Server Error")
+			failWithStatusCode(err, "Unable to insert new user", w, http.StatusInternalServerError)
 			return
 		}
 
@@ -168,13 +180,13 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "UPDATE temp_users SET token = $1 WHERE phone_number = $2"
 		stmt, err = db.Prepare(queryString)
 		res, err := stmt.Exec(token, newUser.PhoneNumber)
-		failOnError(err, "Problem with update query")
+		if err != nil{
+			failWithStatusCode(err, "Problem with update query", w, http.StatusInternalServerError)
+			return
+		}
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
-			failOnError(err, "Unable to update new user")
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprintf(w, "Server Error")
-			return
+			failWithStatusCode(err, "Unable to update new user", w, http.StatusConflict)
 		}
 
 		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token
@@ -200,6 +212,11 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}{"", ""}
 	err := decoder.Decode(&Req)
 
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
 	if Req.Token == "" || Req.PhoneNumber == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Bad request")
@@ -215,12 +232,16 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
-	failOnError(err, "Error preparing query")
+
+	if err != nil{
+		failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
+		return
+	}
+
 	err = stmt.QueryRow(Req.PhoneNumber).Scan(&User.FirstName, &User.LastName, &User.PhoneNumber, &User.Token)
 
 	if User.Token == "" {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "Attempting to verify user that does not exist")
+		failWithStatusCode(err, "Attempting to verify user that does not exist", w, http.StatusNotFound)
 		return
 	}
 
@@ -228,64 +249,46 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, token) VALUES($1, $2, $3, $4, $5)" +
 			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
-		failOnError(err, "Error preparing query")
+		if err != nil{
+			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
+			return
+		}
 		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", User.Token)
-		failOnError(err, "Problem inserting new user")
+		if err != nil{
+			failWithStatusCode(err, "Error Inserting User", w, http.StatusInternalServerError)
+			return
+		}
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprintf(w, "Error inserting new user")
+			failWithStatusCode(err, "Error Inserting User", w, http.StatusConflict)
 			return
 		}
 
 		queryString = "DELETE FROM temp_users WHERE phone_number = $1"
 		stmt, err = db.Prepare(queryString)
-		failOnError(err, "Error preparing query")
+		if err != nil{
+			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
+			return
+		}
 		res, err = stmt.Exec(Req.PhoneNumber)
-		failOnError(err, "Problem deleting temp entry")
+		if err != nil{
+			failWithStatusCode(err, "Problem deleting temp entry", w, http.StatusInternalServerError)
+			return
+		}
 		numRows, err = res.RowsAffected()
 		if numRows < 1 {
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "Did not remove temp entry")
+			failWithStatusCode(err, "Problem deleting temp entry", w, http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "New user verified")
 
 	} else {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "Tokens do not match")
+		failWithStatusCode(err, "Token does not match", w, http.StatusUnauthorized)
 	}
 
 }
 
-func postgresTest(w http.ResponseWriter, r *http.Request) {
-
-	decoder := json.NewDecoder(r.Body)
-	cmd := struct{ Command string }{""}
-	err := decoder.Decode(&cmd)
-	fmt.Println(cmd)
-	failOnError(err, "Failed to decode body")
-
-	if cmd.Command == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Bad command")
-
-		return
-	}
-
-	rows, err := db.Query(cmd.Command)
-	failOnError(err, "Failed in query")
-	defer rows.Close()
-
-	numRows := 0
-	for rows.Next() {
-		numRows++
-	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Query ran successfully!")
-
-}
 
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
@@ -294,15 +297,20 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		IMEI     int    `json:"IMEI"`
 		Location string `json:"locaion"`
 	}{0, ""}
+
 	err := decoder.Decode(&alert)
-	failOnError(err, "Failed to decode body")
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
 
 	//TODO socket
 
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, $2, $3)"
 	stmt, err := db.Prepare(queryString)
 	_, err = stmt.Exec(alert.IMEI, alert.Location, "now")
-	failOnError(err, "Failed to insert new user")
+	failWithStatusCode(err, "Failed to insert new user", w, http.StatusInternalServerError)
 }
 
 func initRoutes() {
@@ -318,7 +326,6 @@ func initRoutes() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
-	http.HandleFunc("/postgres", postgresTest)
 	http.HandleFunc("/alert", alertHandler)
 	http.ListenAndServe(port, nil)
 }
