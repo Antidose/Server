@@ -54,17 +54,17 @@ CREATE INDEX ON location USING GIST(help_location);
 
 --	Function to execute nearest neighbour query
 --	parameter 1 is the requester location, parameter 2 is the search radius
-CREATE OR REPLACE FUNCTION nearest_helpers(geometry(POINT, 4326), int)
+CREATE OR REPLACE FUNCTION nearest_helpers(text, int)
 RETURNS TABLE (
 	candidate_id		INTEGER,
-	distance			INTEGER
+	distance 			INTEGER
 )
 AS $$
 BEGIN
-	SELECT u_id, help_location
+	RETURN query
+	SELECT u_id, (ST_Distance(ST_Transform(help_location, 3005), ST_Transform(ST_GeomFromGeoJSON($1), 3005)):: int) AS distance
 	FROM location
-	ORDER BY
-		(SELECT ST_Transform(help_location, 3005)::geography FROM location WHERE ST_DWithin(ST_Transform(location.help_location, 3005)::geography, $1::geography, $2)) <->
-		ST_GeomFromGeoJSON((ST_Transform($1, 3005)::geography));
+	WHERE ST_DWithin(ST_Transform(help_location, 3005), ST_Transform(ST_GeomFromGeoJSON($1), 3005), $2)
+	ORDER BY ST_Distance(ST_Transform(help_location, 3005), ST_Transform(ST_GeomFromGeoJSON($1), 3005)) ASC;
 END;
 $$	LANGUAGE plpgsql;
