@@ -291,7 +291,6 @@ func initRoutes() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
-	http.HandleFunc("/postgres", postgresTest)
 	http.HandleFunc("/alert", alertHandler)
 	http.ListenAndServe(port, nil)
 }
