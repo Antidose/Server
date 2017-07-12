@@ -186,9 +186,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		numRows, err := res.RowsAffected()
 		if numRows < 1 {
-			failGracefully(err, "Unable to update new user")
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprintf(w, "Server Error")
+			failWithStatusCode(err, "Unable to update new user", w, http.StatusConflict)
 		}
 
 		sendText(newUser.PhoneNumber, fmt.Sprintf("Welcome to Antidose! Your verification token is %d", token)) // Send the text containing the token

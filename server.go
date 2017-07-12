@@ -51,11 +51,9 @@ func failOnError(err error, msg string) {
 }
 
 func failWithStatusCode(err error, msg string, w http.ResponseWriter, statusCode int) {
-	if err != nil {
 		failGracefully(err, msg)
 		w.WriteHeader(statusCode)
 		fmt.Fprintf(w, msg)
-	}
 }
 
 func failGracefully(err error, msg string) {
