@@ -18,6 +18,11 @@ var (
 	//Globals
 	maxRand = 999999
 	minRand = 100000
+
+	targetNumCandidates = 4
+	initialSearchRange = 1000
+	maxSearchRange = 10000
+	searchRangeIncrement = 1000
 )
 
 var userAuthStore = make(map[string]string)
@@ -336,10 +341,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var responderCandidates = make(map[int]int)
-	startRadius := 1000
+	startRadius := initialSearchRange
 
-	for len(responderCandidates) < 3 {
-		if startRadius > 100000 {
+	for len(responderCandidates) < targetNumCandidates {
+		if startRadius > maxSearchRange {
 			break
 		}
 
@@ -351,7 +356,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for rows.Next() {
-			if len(responderCandidates) < 3 {
+			if len(responderCandidates) < targetNumCandidates {
 				tuple := ""
 				err = rows.Scan(&tuple)
 				if err != nil {
@@ -373,7 +378,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		startRadius += 1000
+		startRadius += searchRangeIncrement
 	}
 }
 
