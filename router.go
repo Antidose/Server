@@ -292,7 +292,6 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	//TODO geojson for location
 	alert := struct {
 		IMEI     			int    `json:"IMEI"`
 		LocationType 		string `json:"loc_type"`
@@ -316,19 +315,18 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	locationString += `","properties":{"name":"`
 	locationString += alert.LocationCrsName
 	locationString += `"}}}`
-
-	//TODO socket
 	
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
 	stmt, err := db.Prepare(queryString)
 	res, err := stmt.Exec(alert.IMEI, locationString, "now")
-	failWithStatusCode(err, "Failed to insert new user", w, http.StatusInternalServerError)
+	if err != nil {
+		failWithStatusCode(err, "Failed to initiate incident", w, http.StatusInternalServerError)
+		return
+	}
 
 	numRows, err := res.RowsAffected()
 	if numRows < 1 {
-		failGracefully(err, "Unable to log request")
-		w.WriteHeader(http.StatusConflict)
-		fmt.Fprintf(w, "Server Error")
+		failWithStatusCode(err, "Unable to initiate incident", w, http.StatusInternalServerError)
 		return
 	}
 
@@ -348,17 +346,28 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "SELECT nearest_helpers($1, $2)"
 		stmt, err = db.Prepare(queryString)
 		rows, err := stmt.Query(locationString, startRadius)
-		failOnError(err, "Server Error")
+		if err != nil {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
 
 		for rows.Next() {
 			if len(responderCandidates) < 3 {
 				tuple := ""
-				rows.Scan(&tuple)
+				err = rows.Scan(&tuple)
+				if err != nil {
+					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				}
 				tuple = strings.Replace(tuple, "(", "", 1)
 				tuple = strings.Replace(tuple, ")", "", 1)
 				colArray := strings.Split(tuple, ",")
-				U_id, _ := strconv.Atoi(colArray[0])
-				Distance, _ := strconv.Atoi(colArray[1])
+				U_id, err := strconv.Atoi(colArray[0])
+				if err != nil {
+					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				}
+				Distance, err := strconv.Atoi(colArray[1])
+				if err != nil {
+					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				}
 				responderCandidates[U_id] = Distance
 			} else {
 				break
