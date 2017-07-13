@@ -295,7 +295,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	//TODO geojson for location
 	alert := struct {
 		IMEI     int    `json:"IMEI"`
-		Location string `json:"locaion"`
+		Location string `json:"Location"`
 	}{0, ""}
 
 	err := decoder.Decode(&alert)
@@ -307,10 +307,48 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 	//TODO socket
 
-	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, $2, $3)"
+	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(alert.IMEI, alert.Location, "now")
+	res, err := stmt.Exec(alert.IMEI, alert.Location, "now")
 	failWithStatusCode(err, "Failed to insert new user", w, http.StatusInternalServerError)
+
+	numRows, err := res.RowsAffected()
+	if numRows < 1 {
+		failGracefully(err, "Unable to log request")
+		w.WriteHeader(http.StatusConflict)
+		fmt.Fprintf(w, "Server Error")
+		return
+	}
+
+	type responder struct {
+		U_id 		int
+		Distance	int
+	}
+
+	var responderCandidates [100]responder
+	numCandidates := 0
+	startRadius := 1000
+
+	for numCandidates < 100 {
+
+		queryString = "SELECT nearest_helpers($1, $2)"
+		stmt, err = db.Prepare(queryString)
+		rows, err := stmt.Query(alert.Location, startRadius)
+		failOnError(err, "Server Error")
+
+		for rows.Next() {
+			if numCandidates != 99 {
+				err := rows.Scan(&responderCandidates[numCandidates].U_id, &responderCandidates[numCandidates].Distance)
+				failOnError(err, "Server Error")
+				numCandidates++
+			} else {
+				return
+			}
+		}
+
+		fmt.Println(responderCandidates[0].U_id)
+		startRadius += 1000
+	}
 }
 
 func initRoutes() {
