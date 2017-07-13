@@ -33,9 +33,11 @@ const (
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
-var src = rand.NewSource(time.Now().UnixNano())
+
+func jsonToString() {}
 
 func randString(n int) string {
+	var src = rand.NewSource(time.Now().UnixNano())
 	b := make([]byte, n)
 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
@@ -389,6 +391,50 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	type properties struct {Name string}
+	type Crs struct {Type string
+					Properties properties}
+	type location struct {Type string}
+
+	req := struct {
+		Api_token string `json:"api_token"`
+		Location struct {
+			Type string `json:"type"`
+			Coordinates []float32 `json:"coordinates"`
+			Crs struct {
+				Type string `json:"type"`
+				Properties struct {
+					Name string `json:"name"`
+				} `json:"properties"`
+			} `json:"crs"`
+		} `json:"location"`
+	}{"", {"",[],{"",{""}}}}
+
+	err := decoder.Decode(&req)
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("%s, %s",req.Location, req.Api_token)
+
+	//queryString := "INSERT INTO location (u_id, help_location) " +
+	//	           	"SELECT u_id, ST_GeomFromGeoJSON($2) " +
+	//				"FROM users where api_token LIKE '$1' " +
+	//	           "ON CONFLICT (u_id) " +
+	//				"DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
+	//stmt, err := db.Prepare(queryString)
+	//_, err = stmt.Exec(body.api_token, body.location)
+	//
+	//if err != nil{
+	//	failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)
+	//	return
+	//}
+}
+
 func initRoutes() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -402,5 +448,6 @@ func initRoutes() {
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
 	http.HandleFunc("/alert", alertHandler)
+	http.HandleFunc("/location", locationUpdateHandler)
 	http.ListenAndServe(port, nil)
 }

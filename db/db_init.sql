@@ -45,7 +45,7 @@ SELECT AddGeometryColumn('requests', 'init_help_location', 4326, 'POINT', 2);
 
 
 CREATE TABLE IF NOT EXISTS location (
-	u_id                INTEGER REFERENCES users(u_id)
+	u_id                INTEGER UNIQUE REFERENCES users(u_id)
 );
 
 SELECT AddGeometryColumn('location', 'help_location', 4326, 'POINT', 2);
