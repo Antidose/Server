@@ -19,6 +19,11 @@ var (
 	//Globals
 	maxRand = 999999
 	minRand = 100000
+
+	targetNumCandidates = 4
+	initialSearchRange = 1000
+	maxSearchRange = 10000
+	searchRangeIncrement = 1000
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -299,12 +304,13 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	//TODO geojson for location
 	alert := struct {
-		IMEI     int    `json:"IMEI"`
-		Location string `json:"locaion"`
-	}{0, ""}
-
+		IMEI     			int    `json:"IMEI"`
+		LocationType 		string `json:"loc_type"`
+		LocationCoordinates	string `json:"coordinates"`
+		LocationCrsType		string `json:"crs_type"`
+		LocationCrsName		string `json:"name"`
+	}{0, "", "", "", ""}
 	err := decoder.Decode(&alert)
 
 	if err != nil{
@@ -312,12 +318,75 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO socket
-
-	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, $2, $3)"
+	locationString := `{"type": "`
+	locationString += alert.LocationType
+	locationString += `","coordinates":`
+	locationString += alert.LocationCoordinates
+	locationString += `,"crs":{"type":"`
+	locationString += alert.LocationCrsType
+	locationString += `","properties":{"name":"`
+	locationString += alert.LocationCrsName
+	locationString += `"}}}`
+	
+	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(alert.IMEI, alert.Location, "now")
-	failWithStatusCode(err, "Failed to insert new user", w, http.StatusInternalServerError)
+	res, err := stmt.Exec(alert.IMEI, locationString, "now")
+	if err != nil {
+		failWithStatusCode(err, "Failed to initiate incident", w, http.StatusInternalServerError)
+		return
+	}
+
+	numRows, err := res.RowsAffected()
+	if numRows < 1 {
+		failWithStatusCode(err, "Unable to initiate incident", w, http.StatusInternalServerError)
+		return
+	}
+
+	type responder struct {
+		U_id 		int
+		Distance	int
+	}
+
+	var responderCandidates = make(map[int]int)
+	startRadius := initialSearchRange
+
+	for len(responderCandidates) < targetNumCandidates {
+		if startRadius > maxSearchRange {
+			break
+		}
+
+		queryString = "SELECT nearest_helpers($1, $2)"
+		stmt, err = db.Prepare(queryString)
+		rows, err := stmt.Query(locationString, startRadius)
+		if err != nil {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
+
+		for rows.Next() {
+			if len(responderCandidates) < targetNumCandidates {
+				tuple := ""
+				err = rows.Scan(&tuple)
+				if err != nil {
+					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				}
+				tuple = strings.Replace(tuple, "(", "", 1)
+				tuple = strings.Replace(tuple, ")", "", 1)
+				colArray := strings.Split(tuple, ",")
+				U_id, err := strconv.Atoi(colArray[0])
+				if err != nil {
+					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				}
+				Distance, err := strconv.Atoi(colArray[1])
+				if err != nil {
+					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				}
+				responderCandidates[U_id] = Distance
+			} else {
+				break
+			}
+		}
+		startRadius += searchRangeIncrement
+	}
 }
 
 func initRoutes() {
