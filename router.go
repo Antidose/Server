@@ -294,10 +294,12 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	//TODO geojson for location
 	alert := struct {
-		IMEI     int    `json:"IMEI"`
-		Location string `json:"Location"`
-	}{0, ""}
-
+		IMEI     			int    `json:"IMEI"`
+		LocationType 		string `json:"loc_type"`
+		LocationCoordinates	string `json:"coordinates"`
+		LocationCrsType		string `json:"crs_type"`
+		LocationCrsName		string `json:"name"`
+	}{0, "", "", "", ""}
 	err := decoder.Decode(&alert)
 
 	if err != nil{
@@ -305,11 +307,21 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO socket
+	locationString := `{"type": "`
+	locationString += alert.LocationType
+	locationString += `","coordinates":`
+	locationString += alert.LocationCoordinates
+	locationString += `,"crs":{"type":"`
+	locationString += alert.LocationCrsType
+	locationString += `","properties":{"name":"`
+	locationString += alert.LocationCrsName
+	locationString += `"}}}`
 
+	//TODO socket
+	
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
 	stmt, err := db.Prepare(queryString)
-	res, err := stmt.Exec(alert.IMEI, alert.Location, "now")
+	res, err := stmt.Exec(alert.IMEI, locationString, "now")
 	failWithStatusCode(err, "Failed to insert new user", w, http.StatusInternalServerError)
 
 	numRows, err := res.RowsAffected()
@@ -325,28 +337,33 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		Distance	int
 	}
 
-	var responderCandidates [100]responder
-	numCandidates := 0
+	var responderCandidates = make(map[int]int)
 	startRadius := 1000
 
-	for numCandidates < 100 {
+	for len(responderCandidates) < 3 {
+		if startRadius > 100000 {
+			break
+		}
 
 		queryString = "SELECT nearest_helpers($1, $2)"
 		stmt, err = db.Prepare(queryString)
-		rows, err := stmt.Query(alert.Location, startRadius)
+		rows, err := stmt.Query(locationString, startRadius)
 		failOnError(err, "Server Error")
 
 		for rows.Next() {
-			if numCandidates != 99 {
-				err := rows.Scan(&responderCandidates[numCandidates].U_id, &responderCandidates[numCandidates].Distance)
-				failOnError(err, "Server Error")
-				numCandidates++
+			if len(responderCandidates) < 3 {
+				tuple := ""
+				rows.Scan(&tuple)
+				tuple = strings.Replace(tuple, "(", "", 1)
+				tuple = strings.Replace(tuple, ")", "", 1)
+				colArray := strings.Split(tuple, ",")
+				U_id, _ := strconv.Atoi(colArray[0])
+				Distance, _ := strconv.Atoi(colArray[1])
+				responderCandidates[U_id] = Distance
 			} else {
-				return
+				break
 			}
 		}
-
-		fmt.Println(responderCandidates[0].U_id)
 		startRadius += 1000
 	}
 }
