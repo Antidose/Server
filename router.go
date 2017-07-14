@@ -307,12 +307,9 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
-		IMEI     			int    `json:"IMEI"`
-		LocationType 		string `json:"loc_type"`
-		LocationCoordinates	string `json:"coordinates"`
-		LocationCrsType		string `json:"crs_type"`
-		LocationCrsName		string `json:"name"`
-	}{0, "", "", "", ""}
+		IMEI	int			`json:"IMEI"`
+		Loc		Location	`json:"location"`
+	}{0, Location{}}
 	err := decoder.Decode(&alert)
 
 	if err != nil{
@@ -320,19 +317,16 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	locationString := `{"type": "`
-	locationString += alert.LocationType
-	locationString += `","coordinates":`
-	locationString += alert.LocationCoordinates
-	locationString += `,"crs":{"type":"`
-	locationString += alert.LocationCrsType
-	locationString += `","properties":{"name":"`
-	locationString += alert.LocationCrsName
-	locationString += `"}}}`
+	LocJSON, err := json.Marshal(alert.Loc)
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
 	
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
 	stmt, err := db.Prepare(queryString)
-	res, err := stmt.Exec(alert.IMEI, locationString, "now")
+	res, err := stmt.Exec(alert.IMEI, LocJSON, "now")
 	if err != nil {
 		failWithStatusCode(err, "Failed to initiate incident", w, http.StatusInternalServerError)
 		return
@@ -359,7 +353,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 		queryString = "SELECT nearest_helpers($1, $2)"
 		stmt, err = db.Prepare(queryString)
-		rows, err := stmt.Query(locationString, startRadius)
+		rows, err := stmt.Query(LocJSON, startRadius)
 		if err != nil {
 			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
 		}
