@@ -427,6 +427,42 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		Api_token string `json:"api_token"`
+		Loc Location	 `json:"location"`
+	}{"", Location{}}
+
+	err := decoder.Decode(&req)
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	LocJSON, err := json.Marshal(req.Loc)
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	queryString := "INSERT INTO location (u_id, help_location) " +
+		              "SELECT u_id, ST_GeomFromGeoJSON($2) " +
+					  "FROM users where api_token LIKE $1 " +
+		           "ON CONFLICT (u_id) " +
+					  "DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
+
+	stmt, err := db.Prepare(queryString)
+	_, err = stmt.Exec(req.Api_token, LocJSON)
+
+	if err != nil{
+		failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)
+		return
+	}
+}
+
 func initRoutes() {
 	port := os.Getenv("PORT")
 	if port == "" {
