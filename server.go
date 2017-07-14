@@ -34,6 +34,17 @@ type DbCreds struct {
 	DbName string
 }
 
+type Location struct {
+	Type string
+	Coordinates []float32
+	Crs struct {
+		Type string
+		Properties struct {
+			Name string
+		}
+	}
+}
+
 // Globals
 var (
 	isHeroku       = checkHeroku()

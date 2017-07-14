@@ -393,24 +393,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	type properties struct {Name string}
-	type Crs struct {Type string
-					Properties properties}
-	type location struct {Type string}
-
 	req := struct {
 		Api_token string `json:"api_token"`
-		Location struct {
-			Type string `json:"type"`
-			Coordinates []float32 `json:"coordinates"`
-			Crs struct {
-				Type string `json:"type"`
-				Properties struct {
-					Name string `json:"name"`
-				} `json:"properties"`
-			} `json:"crs"`
-		} `json:"location"`
-	}{"", {"",[],{"",{""}}}}
+		Loc Location	 `json:"location"`
+	}{"", Location{}}
 
 	err := decoder.Decode(&req)
 
@@ -419,20 +405,26 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("%s, %s",req.Location, req.Api_token)
+	LocJSON, err := json.Marshal(req.Loc)
 
-	//queryString := "INSERT INTO location (u_id, help_location) " +
-	//	           	"SELECT u_id, ST_GeomFromGeoJSON($2) " +
-	//				"FROM users where api_token LIKE '$1' " +
-	//	           "ON CONFLICT (u_id) " +
-	//				"DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
-	//stmt, err := db.Prepare(queryString)
-	//_, err = stmt.Exec(body.api_token, body.location)
-	//
-	//if err != nil{
-	//	failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)
-	//	return
-	//}
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	queryString := "INSERT INTO location (u_id, help_location) " +
+		              "SELECT u_id, ST_GeomFromGeoJSON($2) " +
+					  "FROM users where api_token LIKE $1 " +
+		           "ON CONFLICT (u_id) " +
+					  "DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
+
+	stmt, err := db.Prepare(queryString)
+	_, err = stmt.Exec(req.Api_token, LocJSON)
+
+	if err != nil{
+		failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)
+		return
+	}
 }
 
 func initRoutes() {
