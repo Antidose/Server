@@ -412,11 +412,11 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryString := "INSERT INTO location (u_id, help_location) " +
-		              "SELECT u_id, ST_GeomFromGeoJSON($2) " +
-					  "FROM users where api_token LIKE $1 " +
-		           "ON CONFLICT (u_id) " +
-					  "DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
+	queryString :=  "INSERT INTO location (u_id, help_location) " +
+						"SELECT u_id, ST_GeomFromGeoJSON($2) " +
+						"FROM users where api_token LIKE $1 " +
+					"ON CONFLICT (u_id) " +
+						"DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
 
 	stmt, err := db.Prepare(queryString)
 	_, err = stmt.Exec(req.Api_token, LocJSON)
