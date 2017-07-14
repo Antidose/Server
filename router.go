@@ -477,6 +477,37 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		Api_token string `json:"api_token"`
+	}{""}
+
+	err := decoder.Decode(&req)
+
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	queryString := "DELETE FROM users WHERE api_token = $1"
+	stmt, _ := db.Prepare(queryString)
+	res, err := stmt.Exec(req.Api_token)
+
+	if err != nil {
+		failWithStatusCode(err, "Database error", w, http.StatusInternalServerError)
+	}
+
+	numRows, err := res.RowsAffected()
+
+	if numRows < 1 {
+		failWithStatusCode(err, "Could not delete user", w, http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func initRoutes() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -492,5 +523,6 @@ func initRoutes() {
 	http.HandleFunc("/alert", alertHandler)
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
+	http.HandleFunc("/deleteAccount", deleteAccountHandler)
 	http.ListenAndServe(port, nil)
 }
