@@ -225,7 +225,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber string `json:"phone_number"`
 	}{"", ""}
 	err := decoder.Decode(&Req)
-	fmt.Printf("Token: %s \n PhoneNumber: %s ", Req.Token, Req.PhoneNumber)
+
 	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
@@ -261,8 +261,6 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = stmt.QueryRow(Req.PhoneNumber).Scan(&User.FirstName, &User.LastName, &User.PhoneNumber, &User.Token)
 
-	fmt.Printf("first name: %s\nlast name: %s\nphone_number: %s\ntoken: %s", User.FirstName, User.LastName, User.PhoneNumber, User.Token)
-
 	if User.Token == "" {
 		failWithStatusCode(err, "Attempting to verify user that does not exist", w, http.StatusNotFound)
 		return
@@ -273,7 +271,6 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, api_token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
 		if err != nil {
-			fmt.Printf("1st")
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
@@ -292,7 +289,6 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "DELETE FROM temp_users WHERE phone_number = $1"
 		stmt, err = db.Prepare(queryString)
 		if err != nil {
-			fmt.Printf("2nd")
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
