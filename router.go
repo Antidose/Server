@@ -254,6 +254,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = stmt.QueryRow(Req.PhoneNumber).Scan(&User.FirstName, &User.LastName, &User.PhoneNumber, &User.Token)
 
+	fmt.Printf("first name: %s\nlast name: %s\nphone_number: %s\ntoken: %s", User.FirstName, User.LastName, User.PhoneNumber, User.Token)
+
 	if User.Token == "" {
 		failWithStatusCode(err, "Attempting to verify user that does not exist", w, http.StatusNotFound)
 		return
