@@ -326,13 +326,32 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 	LocJSON, err := json.Marshal(alert.Loc)
 
-	if err != nil {
+	if alert.IMEI == 0 || LocJSON == nil {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	if err != nil{
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
 
-	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
+	var count int
+	queryString := "SELECT count(*) FROM incidents WHERE requester_imei = $1 AND time_end IS NULL"
 	stmt, err := db.Prepare(queryString)
+	err = stmt.QueryRow(alert.IMEI).Scan(&count)
+	if err != nil {
+		failWithStatusCode(err, "Internal Error", w, http.StatusInternalServerError)
+		return
+	}
+
+	if count > 0 {
+		failWithStatusCode(err, "Requestor already has open incident", w, http.StatusBadRequest)
+		return
+	}
+	
+	queryString = "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
+	stmt, err = db.Prepare(queryString)
 	res, err := stmt.Exec(alert.IMEI, LocJSON, "now")
 	if err != nil {
 		failWithStatusCode(err, "Failed to initiate incident", w, http.StatusInternalServerError)
@@ -393,6 +412,16 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		Api_token string `json:"api_token"`
+	}{""}
+	err := decoder.Decode(&req)
+
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
 
 }
 
