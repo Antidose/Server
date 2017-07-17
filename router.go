@@ -273,6 +273,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, api_token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
 		if err != nil {
+			fmt.Printf("1st")
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
@@ -291,6 +292,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "DELETE FROM temp_users WHERE phone_number = $1"
 		stmt, err = db.Prepare(queryString)
 		if err != nil {
+			fmt.Printf("2nd")
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
