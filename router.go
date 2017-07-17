@@ -3,17 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	
+
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
+
+	"database/sql"
+	"time"
 
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
-	"time"
-	"database/sql"
 )
 
 var (
@@ -21,9 +22,9 @@ var (
 	maxRand = 999999
 	minRand = 100000
 
-	targetNumCandidates = 4
-	initialSearchRange = 1000
-	maxSearchRange = 10000
+	targetNumCandidates  = 4
+	initialSearchRange   = 1000
+	maxSearchRange       = 10000
 	searchRangeIncrement = 1000
 )
 
@@ -33,7 +34,6 @@ const (
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
-
 
 func jsonToString() {}
 
@@ -70,7 +70,7 @@ func textHandler(w http.ResponseWriter, r *http.Request) {
 	cmd := struct{ Number string }{""}
 	err := decoder.Decode(&cmd)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
@@ -95,13 +95,13 @@ var userSocketmap = make(map[string]*websocket.Conn)
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 	// frontend handshake to get user and hook them into the userMap for sockets
 	_, message, err := conn.ReadMessage()
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, "Failed to handshake", w, http.StatusInternalServerError)
 		return
 	}
@@ -138,7 +138,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	queryString := "SELECT u_id FROM users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
@@ -149,7 +149,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 	queryString = "SELECT temp_u_id FROM temp_users WHERE phone_number = $1"
 	stmt, err = db.Prepare(queryString)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
@@ -167,7 +167,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		stmt, err = db.Prepare(queryString)
 		res, err := stmt.Exec(newUser.FirstName, newUser.LastName, newUser.PhoneNumber, token)
 
-		if err != nil{
+		if err != nil {
 			failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 			return
 		}
@@ -193,7 +193,7 @@ func regHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "UPDATE temp_users SET token = $1 WHERE phone_number = $2"
 		stmt, err = db.Prepare(queryString)
 		res, err := stmt.Exec(token, newUser.PhoneNumber)
-		if err != nil{
+		if err != nil {
 			failWithStatusCode(err, "Problem with update query", w, http.StatusInternalServerError)
 			return
 		}
@@ -226,7 +226,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}{"", ""}
 	err := decoder.Decode(&Req)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
@@ -234,6 +234,13 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	if Req.Token == "" || Req.PhoneNumber == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Bad request")
+		return
+	}
+
+	Req.PhoneNumber = strings.Replace(Req.PhoneNumber, "-", "", -1)
+	_, err = strconv.Atoi(Req.PhoneNumber)
+	if (err != nil) || (len(Req.PhoneNumber) < 10 || len(Req.PhoneNumber) > 16) {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
@@ -247,8 +254,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
 
-	if err != nil{
-		failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
 
@@ -263,13 +270,13 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, api_token) VALUES($1, $2, $3, $4, $5)" +
 			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, api_token = $5 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
-		if err != nil{
+		if err != nil {
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
 		var api_token = randString(16)
 		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", api_token)
-		if err != nil{
+		if err != nil {
 			failWithStatusCode(err, "Error Inserting User", w, http.StatusInternalServerError)
 			return
 		}
@@ -281,12 +288,12 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 		queryString = "DELETE FROM temp_users WHERE phone_number = $1"
 		stmt, err = db.Prepare(queryString)
-		if err != nil{
+		if err != nil {
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
 		res, err = stmt.Exec(Req.PhoneNumber)
-		if err != nil{
+		if err != nil {
 			failWithStatusCode(err, "Problem deleting temp entry", w, http.StatusInternalServerError)
 			return
 		}
@@ -304,27 +311,26 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
-		IMEI	int			`json:"IMEI"`
-		Loc		Location	`json:"location"`
+		IMEI int      `json:"IMEI"`
+		Loc  Location `json:"location"`
 	}{0, Location{}}
 	err := decoder.Decode(&alert)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
 	LocJSON, err := json.Marshal(alert.Loc)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
-	
+
 	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
 	stmt, err := db.Prepare(queryString)
 	res, err := stmt.Exec(alert.IMEI, LocJSON, "now")
@@ -340,8 +346,8 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type responder struct {
-		U_id 		int
-		Distance	int
+		U_id     int
+		Distance int
 	}
 
 	var responderCandidates = make(map[int]int)
@@ -389,34 +395,34 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
-		Loc Location	 `json:"location"`
+		Api_token string   `json:"api_token"`
+		Loc       Location `json:"location"`
 	}{"", Location{}}
 
 	err := decoder.Decode(&req)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
 	LocJSON, err := json.Marshal(req.Loc)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
 
-	queryString :=  "INSERT INTO location (u_id, help_location) " +
-						"SELECT u_id, ST_GeomFromGeoJSON($2) " +
-						"FROM users where api_token LIKE $1 " +
-					"ON CONFLICT (u_id) " +
-						"DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
+	queryString := "INSERT INTO location (u_id, help_location) " +
+		"SELECT u_id, ST_GeomFromGeoJSON($2) " +
+		"FROM users where api_token LIKE $1 " +
+		"ON CONFLICT (u_id) " +
+		"DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
 
 	stmt, err := db.Prepare(queryString)
 	_, err = stmt.Exec(req.Api_token, LocJSON)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)
 		return
 	}
@@ -426,17 +432,17 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
 		Api_token string `json:"api_token"`
-		Status string `json:"status"`
+		Status    string `json:"status"`
 	}{"", ""}
 
 	err := decoder.Decode(&req)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
-	switch r.Method{
+	switch r.Method {
 	case "GET":
 
 		result := ""
@@ -447,7 +453,7 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 		if err == sql.ErrNoRows {
 			failWithStatusCode(err, "could not find user", w, http.StatusNotFound)
 			return
-		}else if err != nil {
+		} else if err != nil {
 			failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
 			return
 		}
