@@ -225,7 +225,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber string `json:"phone_number"`
 	}{"", ""}
 	err := decoder.Decode(&Req)
-
+	fmt.Printf("Token: %s \n PhoneNumber: %s ", Req.Token, Req.PhoneNumber)
 	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
