@@ -237,6 +237,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	Req.PhoneNumber = strings.Replace(Req.PhoneNumber, "-", "", -1)
+
 	User := struct {
 		FirstName   string
 		LastName    string
