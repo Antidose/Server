@@ -238,6 +238,11 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Req.PhoneNumber = strings.Replace(Req.PhoneNumber, "-", "", -1)
+	_, err = strconv.Atoi(Req.PhoneNumber)
+	if (err != nil) || (len(Req.PhoneNumber) < 10 || len(Req.PhoneNumber) > 16) {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
 
 	User := struct {
 		FirstName   string
