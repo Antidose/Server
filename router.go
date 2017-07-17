@@ -251,7 +251,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		Token       string
 	}{"", "", "", ""}
 
-	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = '$1'"
+	queryString := "SELECT first_name, last_name, phone_number, token FROM temp_users WHERE phone_number = $1"
 	stmt, err := db.Prepare(queryString)
 
 	if err != nil {
