@@ -467,6 +467,7 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 		stmt, _ := db.Prepare(queryString)
 		res, err := stmt.Exec(req.Status, req.Api_token)
 
+		fmt.Printf("Token: %s\n Status: %s", req.Api_token, req.Status)
 		if err != nil {
 			failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
 			return
