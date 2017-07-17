@@ -414,8 +414,8 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
-	}{""}
+		IMEI int `json:"IMEI"`
+	}{0}
 	err := decoder.Decode(&req)
 
 	if err != nil{
@@ -423,6 +423,17 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	queryString := "UPDATE incidents SET time_end = 'now' WHERE time_end IS NULL AND requester_imei = $1"
+	stmt, err := db.Prepare(queryString)
+	res, err := stmt.Exec(req.IMEI)
+	numRows, err := res.RowsAffected()
+	if numRows < 1 || err != nil {
+		failWithStatusCode(err, "Failed to close incident", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Incident ended")
 }
 
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
