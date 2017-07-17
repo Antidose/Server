@@ -255,7 +255,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	stmt, err := db.Prepare(queryString)
 
 	if err != nil {
-		failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
 
