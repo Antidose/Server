@@ -311,6 +311,28 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func numResponderHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		Api_token 	string 	`json:"api_token"`
+		Inc_id		int 	`json:"inc_id"`
+	}{"",0}
+
+	err := decoder.Decode(&req)
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	result := ""
+	queryString := "SELECT count(inc_id) FROM requests WHERE inc_id = $1;"
+	stmt, _ := db.Prepare(queryString)
+	err = stmt.QueryRow(req.Inc_id).Scan(&result)
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "{\"responders\":\"%s\"}", result)
+}
+
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
@@ -530,5 +552,7 @@ func initRoutes() {
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
+	http.HandleFunc("/alert", startIncidentHandler)
+	http.HandleFunc("/numResponders", numResponderHandler)
 	http.ListenAndServe(port, nil)
 }
