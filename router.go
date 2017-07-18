@@ -392,6 +392,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
@@ -527,6 +531,7 @@ func initRoutes() {
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
 	http.HandleFunc("/alert", alertHandler)
+	http.HandleFunc("/respondIncident", respondIncidentHandler)
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
