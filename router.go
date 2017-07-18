@@ -325,7 +325,7 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var result int
-	queryString := "SELECT count(inc_id) FROM requests WHERE inc_id = $1;"
+	queryString := "SELECT count(inc_id) FROM requests WHERE inc_id = $1 AND time_responded IS NULL;"
 	stmt, _ := db.Prepare(queryString)
 	err = stmt.QueryRow(req.Inc_id).Scan(&result)
 
