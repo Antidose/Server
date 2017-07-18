@@ -552,7 +552,6 @@ func initRoutes() {
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
-	http.HandleFunc("/alert", startIncidentHandler)
 	http.HandleFunc("/numResponders", numResponderHandler)
 	http.ListenAndServe(port, nil)
 }
