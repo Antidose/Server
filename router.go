@@ -324,13 +324,18 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := ""
+	var result int
 	queryString := "SELECT count(inc_id) FROM requests WHERE inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
 	err = stmt.QueryRow(req.Inc_id).Scan(&result)
 
+	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "{\"responders\":\"%s\"}", result)
+	fmt.Fprintf(w, "{\"responders\":%d}", result)
 }
 
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
