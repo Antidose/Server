@@ -393,7 +393,37 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		Api_token string 	`json:"api_token"`
+		Has_kit bool		`json:"has_kit"`
+		Is_going bool		`json:"is_going"`
+	}{"", false, false}
 
+	err := decoder.Decode(&req)
+
+	if err != nil || req.Api_token == "" {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+	}
+
+	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE u_id IN (SELECT u_id FROM users NATURAL JOIN requests WHERE api_token = $4 AND time_responded IS NULL)"
+	stmt, err := db.Prepare(queryString)
+	res, err := stmt.Exec("now", req.Is_going, req.Has_kit, req.Api_token)
+
+	numRows, _ := res.RowsAffected()
+
+	if err != nil || numRows < 1 {
+		failWithStatusCode(err, "Failed to process response", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if req.Is_going == false {
+		fmt.Fprintf(w, "Response processed")
+		return
+	}
+
+	//	TODO: get the location from incidents, and send it back
 }
 
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
