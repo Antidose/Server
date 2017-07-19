@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
 	last_name           VARCHAR(20),
 	phone_number        VARCHAR(16) UNIQUE,
 	current_status      user_status,
-  api_token           VARCHAR(16)
+ 	api_token           VARCHAR(16)
 );
 
 CREATE TABLE IF NOT EXISTS temp_users (
@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS incidents (
 	requester_imei      VARCHAR(15),
 	req_by_helper       BOOLEAN,
 	time_start          TIMESTAMP WITHOUT TIME ZONE,
-	time_end            TIMESTAMP WITHOUT TIME ZONE
+	time_end            TIMESTAMP WITHOUT TIME ZONE,
+	is_resolved 		BOOLEAN
 );
 
 SELECT AddGeometryColumn('incidents', 'init_req_location', 4326, 'POINT', 2);
