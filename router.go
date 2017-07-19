@@ -516,6 +516,62 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func requestInfoHandler (w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	responder := struct {
+		Api_token string 	`json:"api_token"`
+		Inc_id    int 	`json:"inc_id"`
+		Loc       Location `json:"location"`
+	}{"", 0, Location{}}
+
+	requesterlat := ""
+	requesterlng := ""
+
+	err := decoder.Decode(&responder)
+
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id IN (SELECT inc_id FROM requests NATURAL JOIN users WHERE api_token = $1);"
+	stmt, _ := db.Prepare(queryString)
+	err = stmt.QueryRow(responder.Api_token).Scan(&requesterlat, &requesterlng)
+
+	if err != nil {
+		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
+		return
+	}
+
+	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
+		strconv.FormatFloat(float64(responder.Loc.Coordinates[1]), 'f', 6, 32) + "," +
+		strconv.FormatFloat(float64(responder.Loc.Coordinates[0]), 'f', 6, 32) + ";" +
+		requesterlng + "," +
+		requesterlat + ".json" +
+		"?access_token=" + configuration.Mapbox.Token
+
+	resp, err := http.Get(urlString)
+
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	decoder = json.NewDecoder(resp.Body)
+	MapboxResponse := struct {
+		Routes []MapboxRoute `json:"routes"`
+	}{[]MapboxRoute{}}
+	err = decoder.Decode(&MapboxResponse)
+
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "{\"dist\":\"%f\", \"time\":\"%f\"}", MapboxResponse.Routes[0].Distance, MapboxResponse.Routes[0].Duration)
+}
+
 func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
@@ -620,5 +676,6 @@ func initRoutes() {
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
+	http.HandleFunc("/requestInfo", requestInfoHandler)
 	http.ListenAndServe(port, nil)
 }
