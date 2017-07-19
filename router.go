@@ -311,6 +311,35 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func numResponderHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		Api_token 	string 	`json:"api_token"`
+	}{""}
+
+	err := decoder.Decode(&req)
+	if err != nil{
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	result := ""
+	queryString := "SELECT count(response_val) FROM requests WHERE response_val = TRUE AND inc_id IN " +
+					"(SELECT inc_id FROM requests NATURAL JOIN users WHERE time_responded = NULL AND api_token = $1);"
+	stmt, _ := db.Prepare(queryString)
+	err = stmt.QueryRow(req.Api_token).Scan(&result)
+
+	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+		return
+	}
+
+	resultInt, err := strconv.Atoi(result)
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "{\"responders\":%d}", resultInt)
+}
+
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
@@ -676,6 +705,7 @@ func initRoutes() {
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
+	http.HandleFunc("/numResponders", numResponderHandler)
 	http.HandleFunc("/requestInfo", requestInfoHandler)
 	http.ListenAndServe(port, nil)
 }
