@@ -315,8 +315,7 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
 		Api_token 	string 	`json:"api_token"`
-		Inc_id		int 	`json:"inc_id"`
-	}{"",0}
+	}{""}
 
 	err := decoder.Decode(&req)
 	if err != nil{
@@ -325,9 +324,10 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := ""
-	queryString := "SELECT count(inc_id) FROM requests WHERE inc_id = $1;"
+	queryString := "SELECT count(reponse_val) FROM requests WHERE reponse_val = TRUE AND inc_id IN " +
+					"(SELECT inc_id FROM requests NATURAL JOIN users WHERE api_token = $1);"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(req.Inc_id).Scan(&result)
+	err = stmt.QueryRow(req.Api_token).Scan(&result)
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "{\"responders\":\"%s\"}", result)
