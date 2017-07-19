@@ -326,13 +326,32 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	LocJSON, err := json.Marshal(alert.Loc)
 
-	if err != nil {
+	if alert.IMEI == 0 || LocJSON == nil {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	if err != nil{
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
 
-	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
+	var count int
+	queryString := "SELECT count(*) FROM incidents WHERE requester_imei = $1 AND time_end IS NULL"
 	stmt, err := db.Prepare(queryString)
+	err = stmt.QueryRow(alert.IMEI).Scan(&count)
+	if err != nil {
+		failWithStatusCode(err, "Internal Error", w, http.StatusInternalServerError)
+		return
+	}
+
+	if count > 0 {
+		failWithStatusCode(err, "Requestor already has open incident", w, http.StatusBadRequest)
+		return
+	}
+	
+	queryString = "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
+	stmt, err = db.Prepare(queryString)
 	res, err := stmt.Exec(alert.IMEI, LocJSON, "now")
 	if err != nil {
 		failWithStatusCode(err, "Failed to initiate incident", w, http.StatusInternalServerError)
@@ -424,6 +443,41 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//	TODO: get the location from incidents, and send it back
+}
+
+func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		IMEI string `json:"IMEI"`
+		IsResolved bool `json:"is_resolved"`
+	}{"", false}
+	err := decoder.Decode(&req)
+
+	if err != nil || req.IMEI == "" {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	queryString := "UPDATE incidents SET time_end = 'now', is_resolved = $1 WHERE time_end IS NULL AND requester_imei = $2"
+	stmt, err := db.Prepare(queryString)
+	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+	}
+	res, err := stmt.Exec(req.IsResolved, req.IMEI)
+
+	if err != nil {
+		failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+	}
+
+	numRows, err := res.RowsAffected()
+		
+	if numRows < 1 || err != nil {
+		failWithStatusCode(err, "Failed to close incident", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Incident ended")
 }
 
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
@@ -561,6 +615,7 @@ func initRoutes() {
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
 	http.HandleFunc("/respondIncident", respondIncidentHandler)
+	http.HandleFunc("/stopIncident", stopIncidentHandler)
 	http.HandleFunc("/startIncident", startIncidentHandler)
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
