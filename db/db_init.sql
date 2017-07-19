@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
 	last_name           VARCHAR(20),
 	phone_number        VARCHAR(16) UNIQUE,
 	current_status      user_status,
- 	api_token           VARCHAR(16)
+ 	api_token           VARCHAR(16),
+ 	firebase_id			VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS temp_users (

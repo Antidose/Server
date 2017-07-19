@@ -223,7 +223,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	Req := struct {
 		Token       string `json:"token"`
 		PhoneNumber string `json:"phone_number"`
-	}{"", ""}
+		FirebaseId 	string `json:"firebase_id"`
+	}{"", "", ""}
 	err := decoder.Decode(&Req)
 
 	if err != nil {
@@ -231,7 +232,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if Req.Token == "" || Req.PhoneNumber == "" {
+	if Req.Token == "" || Req.PhoneNumber == "" || Req.FirebaseId == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Bad request")
 		return
@@ -267,15 +268,15 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if Req.Token == User.Token {
-		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, api_token) VALUES($1, $2, $3, $4, $5)" +
-			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, api_token = $5 WHERE EXCLUDED.phone_number = $3"
+		queryString = "INSERT INTO users(first_name, last_name, phone_number, current_status, api_token, firebase_id) VALUES($1, $2, $3, $4, $5, $6)" +
+			"ON CONFLICT (phone_number) DO UPDATE SET first_name = $1, last_name = $2, current_status = $4, api_token = $5, firebase_id = $6 WHERE EXCLUDED.phone_number = $3"
 		stmt, err = db.Prepare(queryString)
 		if err != nil {
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
 		var api_token = randString(16)
-		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", api_token)
+		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", api_token, Req.FirebaseId)
 		if err != nil {
 			failWithStatusCode(err, "Error Inserting User", w, http.StatusInternalServerError)
 			return
