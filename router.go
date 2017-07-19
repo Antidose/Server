@@ -355,13 +355,32 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	LocJSON, err := json.Marshal(alert.Loc)
 
-	if err != nil {
+	if alert.IMEI == 0 || LocJSON == nil {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	if err != nil{
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
 
-	queryString := "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
+	var count int
+	queryString := "SELECT count(*) FROM incidents WHERE requester_imei = $1 AND time_end IS NULL"
 	stmt, err := db.Prepare(queryString)
+	err = stmt.QueryRow(alert.IMEI).Scan(&count)
+	if err != nil {
+		failWithStatusCode(err, "Internal Error", w, http.StatusInternalServerError)
+		return
+	}
+
+	if count > 0 {
+		failWithStatusCode(err, "Requestor already has open incident", w, http.StatusBadRequest)
+		return
+	}
+	
+	queryString = "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
+	stmt, err = db.Prepare(queryString)
 	res, err := stmt.Exec(alert.IMEI, LocJSON, "now")
 	if err != nil {
 		failWithStatusCode(err, "Failed to initiate incident", w, http.StatusInternalServerError)
@@ -421,6 +440,75 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		Api_token string 	`json:"api_token"`
+		Has_kit bool		`json:"has_kit"`
+		Is_going bool		`json:"is_going"`
+	}{"", false, false}
+
+	err := decoder.Decode(&req)
+
+	if err != nil || req.Api_token == "" {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+	}
+
+	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE u_id IN (SELECT u_id FROM users NATURAL JOIN requests WHERE api_token = $4 AND time_responded IS NULL)"
+	stmt, err := db.Prepare(queryString)
+	res, err := stmt.Exec("now", req.Is_going, req.Has_kit, req.Api_token)
+
+	numRows, _ := res.RowsAffected()
+
+	if err != nil || numRows < 1 {
+		failWithStatusCode(err, "Failed to process response", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if req.Is_going == false {
+		fmt.Fprintf(w, "Response processed")
+		return
+	}
+
+	//	TODO: get the location from incidents, and send it back
+}
+
+func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	req := struct {
+		IMEI string `json:"IMEI"`
+		IsResolved bool `json:"is_resolved"`
+	}{"", false}
+	err := decoder.Decode(&req)
+
+	if err != nil || req.IMEI == "" {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	queryString := "UPDATE incidents SET time_end = 'now', is_resolved = $1 WHERE time_end IS NULL AND requester_imei = $2"
+	stmt, err := db.Prepare(queryString)
+	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+	}
+	res, err := stmt.Exec(req.IsResolved, req.IMEI)
+
+	if err != nil {
+		failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+	}
+
+	numRows, err := res.RowsAffected()
+		
+	if numRows < 1 || err != nil {
+		failWithStatusCode(err, "Failed to close incident", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Incident ended")
+}
+
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
@@ -455,6 +543,62 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)
 		return
 	}
+}
+
+func requestInfoHandler (w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	responder := struct {
+		Api_token string 	`json:"api_token"`
+		Inc_id    int 	`json:"inc_id"`
+		Loc       Location `json:"location"`
+	}{"", 0, Location{}}
+
+	requesterlat := ""
+	requesterlng := ""
+
+	err := decoder.Decode(&responder)
+
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
+	}
+
+	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id IN (SELECT inc_id FROM requests NATURAL JOIN users WHERE api_token = $1);"
+	stmt, _ := db.Prepare(queryString)
+	err = stmt.QueryRow(responder.Api_token).Scan(&requesterlat, &requesterlng)
+
+	if err != nil {
+		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
+		return
+	}
+
+	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
+		strconv.FormatFloat(float64(responder.Loc.Coordinates[1]), 'f', 6, 32) + "," +
+		strconv.FormatFloat(float64(responder.Loc.Coordinates[0]), 'f', 6, 32) + ";" +
+		requesterlng + "," +
+		requesterlat + ".json" +
+		"?access_token=" + configuration.Mapbox.Token
+
+	resp, err := http.Get(urlString)
+
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	decoder = json.NewDecoder(resp.Body)
+	MapboxResponse := struct {
+		Routes []MapboxRoute `json:"routes"`
+	}{[]MapboxRoute{}}
+	err = decoder.Decode(&MapboxResponse)
+
+	if err != nil {
+		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "{\"dist\":\"%f\", \"time\":\"%f\"}", MapboxResponse.Routes[0].Distance, MapboxResponse.Routes[0].Duration)
 }
 
 func userStatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -555,10 +699,13 @@ func initRoutes() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
+	http.HandleFunc("/respondIncident", respondIncidentHandler)
+	http.HandleFunc("/stopIncident", stopIncidentHandler)
 	http.HandleFunc("/startIncident", startIncidentHandler)
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
 	http.HandleFunc("/numResponders", numResponderHandler)
+	http.HandleFunc("/requestInfo", requestInfoHandler)
 	http.ListenAndServe(port, nil)
 }
