@@ -311,7 +311,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func alertHandler(w http.ResponseWriter, r *http.Request) {
+func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
 		IMEI int      `json:"IMEI"`
@@ -560,8 +560,8 @@ func initRoutes() {
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
 	http.HandleFunc("/verify", verifyHandler)
-	http.HandleFunc("/alert", alertHandler)
 	http.HandleFunc("/respondIncident", respondIncidentHandler)
+	http.HandleFunc("/startIncident", startIncidentHandler)
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
