@@ -325,7 +325,7 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 
 	result := ""
 	queryString := "SELECT count(reponse_val) FROM requests WHERE reponse_val = TRUE AND inc_id IN " +
-					"(SELECT inc_id FROM requests NATURAL JOIN users WHERE api_token = $1);"
+					"(SELECT inc_id FROM requests NATURAL JOIN users WHERE time_reponded = NULL AND api_token = $1);"
 	stmt, _ := db.Prepare(queryString)
 	err = stmt.QueryRow(req.Api_token).Scan(&result)
 
