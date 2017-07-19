@@ -15,8 +15,9 @@ import (
 
 // Configuration : Core config structure
 type Configuration struct {
-	Twilio TwilioKey
-	DB     DbCreds
+	Twilio     TwilioKey
+	DB     	   DbCreds
+	Mapbox	   Mapbox
 }
 
 // TwilioKey : Config strucuture for Twilio
@@ -34,6 +35,10 @@ type DbCreds struct {
 	DbName string
 }
 
+type Mapbox struct {
+	Token string
+}
+
 type Location struct {
 	Type string
 	Coordinates []float32
@@ -43,6 +48,16 @@ type Location struct {
 			Name string
 		}
 	}
+}
+
+
+type MapboxRoute struct {
+	Duration	float32
+	Distance	float32
+	Weight		float32
+	WeightName 	string
+	Geometry	string
+
 }
 
 // Globals
