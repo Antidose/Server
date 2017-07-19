@@ -329,8 +329,15 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	stmt, _ := db.Prepare(queryString)
 	err = stmt.QueryRow(req.Api_token).Scan(&result)
 
+	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+		return
+	}
+
+	resultInt, err := strconv.Atoi(result)
+
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "{\"responders\":\"%s\"}", result)
+	fmt.Fprintf(w, "{\"responders\":%d}", resultInt)
 }
 
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
