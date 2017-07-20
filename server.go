@@ -9,15 +9,16 @@ import (
 
 	"database/sql"
 
-	"github.com/sfreiberg/gotwilio"
 	"net/http"
+
+	"github.com/sfreiberg/gotwilio"
 )
 
 // Configuration : Core config structure
 type Configuration struct {
-	Twilio     TwilioKey
-	DB     	   DbCreds
-	Mapbox	   Mapbox
+	Twilio TwilioKey
+	DB     DbCreds
+	Mapbox Mapbox
 }
 
 // TwilioKey : Config strucuture for Twilio
@@ -40,24 +41,27 @@ type Mapbox struct {
 }
 
 type Location struct {
-	Type string
+	Type        string
 	Coordinates []float32
-	Crs struct {
-		Type string
+	Crs         struct {
+		Type       string
 		Properties struct {
 			Name string
 		}
 	}
 }
 
-
 type MapboxRoute struct {
-	Duration	float32
-	Distance	float32
-	Weight		float32
-	WeightName 	string
-	Geometry	string
+	Duration   float32
+	Distance   float32
+	Weight     float32
+	WeightName string
+	Geometry   string
+}
 
+type SocketMessage struct {
+	IncidentId string
+	UserId     string
 }
 
 // Globals
@@ -77,9 +81,9 @@ func failOnError(err error, msg string) {
 }
 
 func failWithStatusCode(err error, msg string, w http.ResponseWriter, statusCode int) {
-		failGracefully(err, msg)
-		w.WriteHeader(statusCode)
-		fmt.Fprintf(w, msg)
+	failGracefully(err, msg)
+	w.WriteHeader(statusCode)
+	fmt.Fprintf(w, msg)
 }
 
 func failGracefully(err error, msg string) {
