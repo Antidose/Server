@@ -1,76 +1,35 @@
---	test data
+-- 0101000020E610000069C6A2E9ECD35EC0C7D45DD9053B4840 ecs
+-- 0101000020E6100000D940BAD8B4D35EC063997E89783B4840 fels
+-- 0101000020E610000025AE635C71DA5EC0130A117008374840 la belle patate
 
---	test users
-INSERT INTO users(first_name, last_name, phone_number, current_status, token)
-VALUES('Tanner1', 'Zinck', '1234567891', 'active', '123456');
+--	test incidents
+INSERT INTO incidents(requester_imei, req_by_helper, time_start, init_req_location)
+VALUES('1234567890abcd1', FALSE, now(),                 '0101000020E6100000D940BAD8B4D35EC063997E89783B4840'),
+			('1234567890abcd2', FALSE, TIMESTAMP 'yesterday', '0101000020E6100000D940BAD8B4D35EC063997E89783B4840');
 
-INSERT INTO users(first_name, last_name, phone_number, current_status, token)
-VALUES('Tanner2', 'Zinck', '1234567892', 'active', '123456');
+UPDATE incidents SET time_end = now() WHERE requester_imei = '1234567890abcd2';
 
-INSERT INTO users(first_name, last_name, phone_number, current_status, token)
-VALUES('Tanner3', 'Zinck', '1234567893', 'active', '123456');
+--	test helpers
+INSERT INTO users(first_name, last_name, phone_number, current_status, api_token, firebase_id)
+VALUES('Tanner1', 'Zinck', '1234567891', 'active', '1234567890abcde1', 'firebase1234567890abcde1'),
+			('Tanner2', 'Zinck', '1234567892', 'active', '1234567890abcde2', 'firebase1234567890abcde2'),
+			('Tanner3', 'Zinck', '1234567893', 'active', '1234567890abcde3', 'firebase1234567890abcde3'),
+			('Tanner4', 'Zinck', '1234567894', 'active', '1234567890abcde4', 'firebase1234567890abcde4'),
+			('Tanner5', 'Zinck', '1234567895', 'deleted', '1234567890abcde5', 'firebase1234567890abcde5'),
+			('Tanner6', 'Zinck', '1234567896', 'inactive', '1234567890abcde6', 'firebase1234567890abcde6');
 
-INSERT INTO users(first_name, last_name, phone_number, current_status, token)
-VALUES('Tanner4', 'Zinck', '1234567894', 'active', '123456');
-
-INSERT INTO users(first_name, last_name, phone_number, current_status, token)
-VALUES('Tanner5', 'Zinck', '1234567895', 'active', '123456');
-
-INSERT INTO users(first_name, last_name, phone_number, current_status, token)
-VALUES('Tanner6', 'Zinck', '1234567896', 'active', '123456');
-
-
---	test locations
+--	test helper locations
 INSERT INTO location(u_id, help_location)
-VALUES (
-	1,
-	ST_GeomFromGeoJSON(
-		'{
-			"type": "Point",
-			"coordinates": [7.734375,51.835777520452],
-			"crs":{"type":"name","properties":{"name":"EPSG:4326"}}
-		}'
-	)
-),
-(
-	2,
-	ST_GeomFromGeoJSON(
-		'{
-			"type": "Point",
-			"coordinates": [7.834375,51.935777520452],
-			"crs":{"type":"name","properties":{"name":"EPSG:4326"}}
-		}'
-	)
-),
-(
-	3,
-	ST_GeomFromGeoJSON(
-		'{
-			"type": "Point",
-			"coordinates": [8.134375,52.835777520452],
-			"crs":{"type":"name","properties":{"name":"EPSG:4326"}}
-		}'
-	)
-),
-(
-	4,
-	ST_GeomFromGeoJSON(
-		'{
-			"type": "Point",
-			"coordinates": [7.735375,51.836777520452],
-			"crs":{"type":"name","properties":{"name":"EPSG:4326"}}
-		}'
-	)
-);
+VALUES 	(1, '0101000020E610000069C6A2E9ECD35EC0C7D45DD9053B4840'),
+				(2, '0101000020E610000069C6A2E9ECD35EC0C7D45DD9053B4840'),
+				(3, '0101000020E6100000D940BAD8B4D35EC063997E89783B4840'),
+				(4, '0101000020E6100000D940BAD8B4D35EC063997E89783B4840'),
+				(5, '0101000020E610000025AE635C71DA5EC0130A117008374840'),
+				(6, '0101000020E610000025AE635C71DA5EC0130A117008374840');
 
-INSERT INTO location(u_id, help_location)
-VALUES(
-	5,
-	ST_GeomFromGeoJSON(
-		'{
-			"type": "Point",
-			"coordinates": [7.735375,51.836787520452],
-			"crs":{"type":"name","properties":{"name":"EPSG:4326"}}
-		}'
-	)
-);
+--	test requests
+INSERT INTO requests(u_id, init_time, time_responded, response_val, has_kit, inc_id, init_help_location)
+VALUES	(1, TIMESTAMP 'yesterday', TIMESTAMP 'yesterday', TRUE, TRUE, 2, '0101000020E610000069C6A2E9ECD35EC0C7D45DD9053B4840'),
+				(2, TIMESTAMP 'yesterday', TIMESTAMP 'yesterday', FALSE, NULL, 2, '0101000020E610000069C6A2E9ECD35EC0C7D45DD9053B4840'),
+				(1, now(), NULL, NULL, NULL, 1, '0101000020E610000069C6A2E9ECD35EC0C7D45DD9053B4840'),
+				(2, now(), now(), TRUE, TRUE, 1, '0101000020E610000069C6A2E9ECD35EC0C7D45DD9053B4840');
