@@ -400,14 +400,10 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
-
-<<<<<<< Updated upstream
-	if err != nil {
-=======
+	
 	LocJSON := formatGeoSON(alert.Lat, alert.Lng)
 
 	if err != nil{
->>>>>>> Stashed changes
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
@@ -591,18 +587,11 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
-<<<<<<< Updated upstream
-		Api_token string   `json:"api_token"`
-		Inc_id    int      `json:"inc_id"`
-		Loc       Location `json:"location"`
-	}{"", 0, Location{}}
-=======
 		Api_token string 	`json:"api_token"`
 		Inc_id    int 	`json:"inc_id"`
 		Lat			float64		`json:"latitude"`
 		Lng			float64		`json:"longitude"`
 	}{"", 0, 0, 0}
->>>>>>> Stashed changes
 
 	requesterlat := ""
 	requesterlng := ""
