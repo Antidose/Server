@@ -41,10 +41,10 @@ type Mapbox struct {
 }
 
 type Location struct {
-	Type        string
-	Coordinates []float32
-	Crs         struct {
-		Type       string
+	Type string
+	Coordinates []float64
+	Crs struct {
+		Type string
 		Properties struct {
 			Name string
 		}

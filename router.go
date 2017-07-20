@@ -55,6 +55,20 @@ func randString(n int) string {
 	return string(b)
 }
 
+func formatGeoSON(lat float64, lng float64) ([]byte) {
+	Loc := Location{}
+	Loc.Type = "Point"
+	Loc.Coordinates = []float64{lat, lng}
+	Loc.Crs.Type = "name"
+	Loc.Crs.Properties.Name = "EPSG:4326"
+
+	LocJSON, err := json.Marshal(Loc)
+
+	failGracefully(err, "could not encode as geojson")
+
+	return LocJSON
+}
+
 var userAuthStore = make(map[string]string)
 
 func sendText(phoneNumber string, message string) {
@@ -375,24 +389,25 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
-		IMEI int      `json:"IMEI"`
-		Loc  Location `json:"location"`
-	}{0, Location{}}
+		IMEI	int			`json:"IMEI"`
+		Lat		float64		`json:"latitude"`
+		Lng		float64		`json:"longitude"`
+	}{0, 0, 0}
 	err := decoder.Decode(&alert)
 
-	if err != nil {
+
+	if err != nil || alert.IMEI == 0 || alert.Lat == 0 || alert.Lng == 0 {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
-	LocJSON, err := json.Marshal(alert.Loc)
-
-	if alert.IMEI == 0 || LocJSON == nil {
-		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
-		return
-	}
-
+<<<<<<< Updated upstream
 	if err != nil {
+=======
+	LocJSON := formatGeoSON(alert.Lat, alert.Lng)
+
+	if err != nil{
+>>>>>>> Stashed changes
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
@@ -544,9 +559,10 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string   `json:"api_token"`
-		Loc       Location `json:"location"`
-	}{"", Location{}}
+		Api_token	string		`json:"api_token"`
+		Lat			float64		`json:"latitude"`
+		Lng			float64		`json:"longitude"`
+	}{"", 0, 0}
 
 	err := decoder.Decode(&req)
 
@@ -555,12 +571,7 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LocJSON, err := json.Marshal(req.Loc)
-
-	if err != nil {
-		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
-		return
-	}
+	LocJSON := formatGeoSON(req.Lat, req.Lng)
 
 	queryString := "INSERT INTO location (u_id, help_location) " +
 		"SELECT u_id, ST_GeomFromGeoJSON($2) " +
@@ -580,10 +591,18 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
+<<<<<<< Updated upstream
 		Api_token string   `json:"api_token"`
 		Inc_id    int      `json:"inc_id"`
 		Loc       Location `json:"location"`
 	}{"", 0, Location{}}
+=======
+		Api_token string 	`json:"api_token"`
+		Inc_id    int 	`json:"inc_id"`
+		Lat			float64		`json:"latitude"`
+		Lng			float64		`json:"longitude"`
+	}{"", 0, 0, 0}
+>>>>>>> Stashed changes
 
 	requesterlat := ""
 	requesterlng := ""
@@ -605,10 +624,10 @@ func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
-		strconv.FormatFloat(float64(responder.Loc.Coordinates[1]), 'f', 6, 32) + "," +
-		strconv.FormatFloat(float64(responder.Loc.Coordinates[0]), 'f', 6, 32) + ";" +
-		requesterlng + "," +
-		requesterlat + ".json" +
+		strconv.FormatFloat(float64(responder.Lat), 'f', 6, 32) + "," +
+		strconv.FormatFloat(float64(responder.Lng), 'f', 6, 32) + ";" +
+		requesterlat + "," +
+		requesterlng + ".json" +
 		"?access_token=" + configuration.Mapbox.Token
 
 	resp, err := http.Get(urlString)
