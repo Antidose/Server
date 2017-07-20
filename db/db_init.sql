@@ -69,8 +69,9 @@ AS $$
 BEGIN
 	RETURN query
 	SELECT u_id, (ST_Distance(ST_Transform(help_location, 3005), ST_Transform(ST_GeomFromGeoJSON($1), 3005)):: int) AS distance
-	FROM location
+	FROM location NATURAL JOIN users
 	WHERE ST_DWithin(ST_Transform(help_location, 3005), ST_Transform(ST_GeomFromGeoJSON($1), 3005), $2)
+	AND current_status = 'active'
 	ORDER BY ST_Distance(ST_Transform(help_location, 3005), ST_Transform(ST_GeomFromGeoJSON($1), 3005)) ASC;
 END;
 $$	LANGUAGE plpgsql;
