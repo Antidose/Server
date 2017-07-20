@@ -91,7 +91,20 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var userSocketmap = make(map[string]*websocket.Conn)
+var userSocketmap = make(map[string]*websocket.Conn) // Maps
+
+var incidentUserSocketMap = make(map[string][]*websocket.Conn)
+
+func updateUserSockets(incidentID string) {
+	numResponders := []byte(string(len(incidentUserSocketMap[incidentID])))
+	fmt.Printf("Number of responders %s\n", numResponders)
+	for _, socket := range incidentUserSocketMap[incidentID] {
+		// Notify all users that
+		socket.WriteMessage(websocket.TextMessage, numResponders)
+		// index is the index where we are
+		// element is the element from someSlice for where we are
+	}
+}
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -99,18 +112,36 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
+	message := SocketMessage{}
 	// frontend handshake to get user and hook them into the userMap for sockets
-	_, message, err := conn.ReadMessage()
+	err = conn.ReadJSON(&message)
 	if err != nil {
 		failWithStatusCode(err, "Failed to handshake", w, http.StatusInternalServerError)
 		return
 	}
-	fmt.Printf("Handshake from client is %s\n", message)
-	userSocket, found := userSocketmap[string(message)]
-	if found {
-		userSocket.Close()
+
+	if len(message.UserId) == 16 {
+		// add user to incident using token
+		incidentUserSocketMap[message.IncidentId] = append(incidentUserSocketMap[message.IncidentId], conn)
+		updateUserSockets(message.IncidentId)
 	}
-	userSocketmap[string(message)] = conn
+
+	if len(message.UserId) == 15 {
+		// new Incident from IMEI
+		users, found := incidentUserSocketMap[message.IncidentId]
+		if found {
+			// Another request is being opened from the same IMEI. Das bad
+			fmt.Print(users)
+			//Probs close all sockets and start over
+			// Close all sockets
+			//userSocket.Close()
+		}
+		incidentUserSocketMap[message.IncidentId] = []*websocket.Conn{conn}
+	}
+	//conn.WriteMessage(websocket.TextMessage, []byte("4"))
+	fmt.Printf("Handshake from client is %+v\n", message)
+	fmt.Printf("Incident Table looks like %+v\n", incidentUserSocketMap)
+
 }
 
 func regHandler(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +254,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	Req := struct {
 		Token       string `json:"token"`
 		PhoneNumber string `json:"phone_number"`
-		FirebaseId 	string `json:"firebase_id"`
+		FirebaseId  string `json:"firebase_id"`
 	}{"", "", ""}
 	err := decoder.Decode(&Req)
 
@@ -315,18 +346,18 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token 	string 	`json:"api_token"`
+		Api_token string `json:"api_token"`
 	}{""}
 
 	err := decoder.Decode(&req)
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
 	result := ""
 	queryString := "SELECT count(response_val) FROM requests WHERE response_val = TRUE AND inc_id IN " +
-					"(SELECT inc_id FROM requests NATURAL JOIN users WHERE time_responded = NULL AND api_token = $1);"
+		"(SELECT inc_id FROM requests NATURAL JOIN users WHERE time_responded = NULL AND api_token = $1);"
 	stmt, _ := db.Prepare(queryString)
 	err = stmt.QueryRow(req.Api_token).Scan(&result)
 
@@ -361,7 +392,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
@@ -379,7 +410,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		failWithStatusCode(err, "Requestor already has open incident", w, http.StatusBadRequest)
 		return
 	}
-	
+
 	queryString = "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
 	stmt, err = db.Prepare(queryString)
 	res, err := stmt.Exec(alert.IMEI, LocJSON, "now")
@@ -444,9 +475,9 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string 	`json:"api_token"`
-		Has_kit bool		`json:"has_kit"`
-		Is_going bool		`json:"is_going"`
+		Api_token string `json:"api_token"`
+		Has_kit   bool   `json:"has_kit"`
+		Is_going  bool   `json:"is_going"`
 	}{"", false, false}
 
 	err := decoder.Decode(&req)
@@ -478,8 +509,8 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		IMEI string `json:"IMEI"`
-		IsResolved bool `json:"is_resolved"`
+		IMEI       string `json:"IMEI"`
+		IsResolved bool   `json:"is_resolved"`
 	}{"", false}
 	err := decoder.Decode(&req)
 
@@ -500,7 +531,7 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	numRows, err := res.RowsAffected()
-		
+
 	if numRows < 1 || err != nil {
 		failWithStatusCode(err, "Failed to close incident", w, http.StatusInternalServerError)
 		return
@@ -546,11 +577,11 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func requestInfoHandler (w http.ResponseWriter, r *http.Request) {
+func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
-		Api_token string 	`json:"api_token"`
-		Inc_id    int 	`json:"inc_id"`
+		Api_token string   `json:"api_token"`
+		Inc_id    int      `json:"inc_id"`
 		Loc       Location `json:"location"`
 	}{"", 0, Location{}}
 
