@@ -483,6 +483,50 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		startRadius += searchRangeIncrement
 	}
+
+	for userId := range responderCandidates {
+		type DataStruct struct {
+			Notification string `json:"notification"`
+			Lat float64 `json:"lat"`
+			Lon float64 `json:"lon"`
+			Max int `json:"max"`
+			IncidentId int `json:"incident_id"`
+		}
+
+		type Notification struct {
+			To string `json:"to"`
+			Data DataStruct `json:"data"`
+			TimeToLive int `json:"time_to_live"`
+		}
+
+		notification := &Notification {
+			To: "",
+			Data: DataStruct {
+				Notification: "",
+				Lat: 0,
+				Lon: 0,
+				Max: 0,
+				IncidentId: 0,
+			},
+			TimeToLive: 0,
+		}
+
+		var lon float64
+		var lat float64
+		queryString := "SELECT ST_X(help_location), ST_Y(help_location) FROM users NATURAL JOIN location WHERE u_id = $1"
+		stmt, err := db.Prepare(queryString)
+		err = stmt.QueryRow(userId).Scan(&lon, &lat)
+
+		if err != nil {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
+
+		notification.Data.Lat = lat
+		notification.Data.Lon = lon
+
+		//	To Do: Post to firebase with users firebase ID, and the max range
+		//	respond to requester with incident id
+	}
 }
 
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
