@@ -360,8 +360,10 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
-	}{""}
+		Api_token	string	`json:"api_token"`
+		Inc_id		string	`json:"inc_id"`
+
+	}{"", ""}
 
 	err := decoder.Decode(&req)
 	if err != nil {
@@ -370,10 +372,9 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := ""
-	queryString := "SELECT count(response_val) FROM requests WHERE response_val = TRUE AND inc_id IN " +
-		"(SELECT inc_id FROM requests NATURAL JOIN users WHERE time_responded = NULL AND api_token = $1);"
+	queryString := "SELECT count(response_val) FROM requests WHERE response_val = TRUE AND inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(req.Api_token).Scan(&result)
+	err = stmt.QueryRow(req.Inc_id).Scan(&result)
 
 	if err != nil {
 		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
@@ -422,9 +423,10 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryString = "INSERT INTO incidents(requester_imei, init_req_location, time_start) VALUES($1, ST_GeomFromGeoJson($2), $3)"
+	incId := randString(12)
+	queryString = "INSERT INTO incidents(inc_id, requester_imei, init_req_location, time_start) VALUES($1, $2, ST_GeomFromGeoJson($3), $4)"
 	stmt, err = db.Prepare(queryString)
-	res, err := stmt.Exec(alert.IMEI, LocJSON, "now")
+	res, err := stmt.Exec(incId, alert.IMEI, string(LocJSON), "now()")
 	if err != nil {
 		failWithStatusCode(err, "Failed to initiate incident", w, http.StatusInternalServerError)
 		return
@@ -486,10 +488,11 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
-		Has_kit   bool   `json:"has_kit"`
-		Is_going  bool   `json:"is_going"`
-	}{"", false, false}
+		Api_token	string	`json:"api_token"`
+		Inc_id		string	`json:"inc_id"`
+		Has_kit		bool	`json:"has_kit"`
+		Is_going	bool	`json:"is_going"`
+	}{"","", false, false}
 
 	err := decoder.Decode(&req)
 
@@ -497,9 +500,9 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 	}
 
-	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE u_id IN (SELECT u_id FROM users NATURAL JOIN requests WHERE api_token = $4 AND time_responded IS NULL)"
+	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
 	stmt, err := db.Prepare(queryString)
-	res, err := stmt.Exec("now", req.Is_going, req.Has_kit, req.Api_token)
+	res, err := stmt.Exec("now", req.Is_going, req.Has_kit, req.Api_token, req.Inc_id)
 
 	numRows, _ := res.RowsAffected()
 
@@ -587,11 +590,11 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
-		Api_token string 	`json:"api_token"`
-		Inc_id    int 	`json:"inc_id"`
+		Api_token	string 		`json:"api_token"`
+		Inc_id		string 		`json:"inc_id"`
 		Lat			float64		`json:"latitude"`
 		Lng			float64		`json:"longitude"`
-	}{"", 0, 0, 0}
+	}{"", "", 0, 0}
 
 	requesterlat := ""
 	requesterlng := ""
