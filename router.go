@@ -400,7 +400,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
-	
+
 	LocJSON := formatGeoSON(alert.Lat, alert.Lng)
 
 	if err != nil{
@@ -584,7 +584,7 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
+func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
 		Api_token string 	`json:"api_token"`
@@ -603,9 +603,9 @@ func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id IN (SELECT inc_id FROM requests NATURAL JOIN users WHERE api_token = $1);"
+	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(responder.Api_token).Scan(&requesterlat, &requesterlng)
+	err = stmt.QueryRow(responder.Inc_id).Scan(&requesterlat, &requesterlng)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
@@ -613,8 +613,8 @@ func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
-		strconv.FormatFloat(float64(responder.Lat), 'f', 6, 32) + "," +
-		strconv.FormatFloat(float64(responder.Lng), 'f', 6, 32) + ";" +
+		strconv.FormatFloat(responder.Lat, 'f', 6, 64) + "," +
+		strconv.FormatFloat(responder.Lng, 'f', 6, 64) + ";" +
 		requesterlat + "," +
 		requesterlng + ".json" +
 		"?access_token=" + configuration.Mapbox.Token
@@ -746,6 +746,6 @@ func initRoutes() {
 	http.HandleFunc("/userStatus", userStatusHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
 	http.HandleFunc("/numResponders", numResponderHandler)
-	http.HandleFunc("/requestInfo", requestInfoHandler)
+	http.HandleFunc("/getInfoResponder", getInfoResponderHandler)
 	http.ListenAndServe(port, nil)
 }
