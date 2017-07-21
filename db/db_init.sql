@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS temp_users (
 );
 
 CREATE TABLE IF NOT EXISTS incidents (
-	inc_id              serial PRIMARY KEY,
+	inc_id              VARCHAR(12) PRIMARY KEY,
 	requester_imei      VARCHAR(15),
 	req_by_helper       BOOLEAN,
 	time_start          TIMESTAMP WITHOUT TIME ZONE,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS requests (
 	time_responded      TIMESTAMP WITHOUT TIME ZONE,
 	response_val        BOOLEAN,
 	has_kit		    BOOLEAN,
-	inc_id              INTEGER REFERENCES incidents(inc_id)
+	inc_id              VARCHAR(12) REFERENCES incidents(inc_id)
 );
 
 --  Adds a 2 dimensional Geometry column of type point, in SRID 4326
