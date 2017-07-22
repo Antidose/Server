@@ -557,8 +557,8 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		http.DefaultClient.Do(req)
 	}
 
-	//	respond to requester with incident id
-
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "\"incident_id\":\"%s\",\"num_notified\":%d", incId, len(responderCandidates))
 }
 
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
