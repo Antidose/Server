@@ -19,6 +19,7 @@ type Configuration struct {
 	Twilio TwilioKey
 	DB     DbCreds
 	Mapbox Mapbox
+	Firebase Firebase
 }
 
 // TwilioKey : Config strucuture for Twilio
@@ -38,6 +39,10 @@ type DbCreds struct {
 
 type Mapbox struct {
 	Token string
+}
+
+type Firebase struct {
+	Key string
 }
 
 type Location struct {
