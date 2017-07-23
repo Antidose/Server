@@ -517,7 +517,20 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//	TODO: get the location from incidents, and send it back
+	incidentLat  := 0
+	incidentLong := 0
+
+	queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
+	stmt, _ = db.Prepare(queryString)
+	err = stmt.QueryRow(req.IncId).Scan(&incidentLong, &incidentLat)
+
+	if err != nil {
+		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLong)
 }
 
 func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
