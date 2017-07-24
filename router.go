@@ -517,7 +517,7 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if(req.IsGoing){
+	if req.IsGoing {
 		incidentLat := 0
 		incidentLng := 0
 
@@ -652,6 +652,11 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	if len(MapboxResponse.Routes) < 1 {
+		failWithStatusCode(err, "No Route from mapbox", w, http.StatusInternalServerError)
 		return
 	}
 
