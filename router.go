@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"bytes"
 	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"bytes"
 
 	"database/sql"
 	"time"
@@ -36,6 +36,10 @@ const (
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
+var userSocketmap = make(map[string]*websocket.Conn) // Maps
+
+var incidentUserSocketMap = make(map[string][]*websocket.Conn)
+
 func jsonToString() {}
 
 func randString(n int) string {
@@ -56,7 +60,7 @@ func randString(n int) string {
 	return string(b)
 }
 
-func formatGeoSON(lat float64, lng float64) ([]byte) {
+func formatGeoSON(lat float64, lng float64) []byte {
 	Loc := Location{}
 	Loc.Type = "Point"
 	Loc.Coordinates = []float64{lat, lng}
@@ -105,10 +109,6 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
-
-var userSocketmap = make(map[string]*websocket.Conn) // Maps
-
-var incidentUserSocketMap = make(map[string][]*websocket.Conn)
 
 func updateUserSockets(incidentID string) {
 	numResponders := []byte(string(len(incidentUserSocketMap[incidentID])))
@@ -361,9 +361,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		ApiToken string	`json:"api_token"`
-		IncId    string	`json:"inc_id"`
-
+		ApiToken string `json:"api_token"`
+		IncId    string `json:"inc_id"`
 	}{"", ""}
 
 	err := decoder.Decode(&req)
@@ -391,12 +390,11 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
-		IMEI	int			`json:"IMEI"`
-		Lat		float64		`json:"latitude"`
-		Lng		float64		`json:"longitude"`
+		IMEI int     `json:"IMEI"`
+		Lat  float64 `json:"latitude"`
+		Lng  float64 `json:"longitude"`
 	}{0, 0, 0}
 	err := decoder.Decode(&alert)
-
 
 	if err != nil || alert.IMEI == 0 || alert.Lat == 0 || alert.Lng == 0 {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
@@ -405,7 +403,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	LocJSON := formatGeoSON(alert.Lat, alert.Lng)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
@@ -495,29 +493,29 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	for userId, _ := range responderCandidates {
 		type DataStruct struct {
-			Notification string `json:"notification"`
-			Lat float64 `json:"lat"`
-			Lon float64 `json:"lon"`
-			Max int `json:"max"`
-			IncidentId int `json:"incident_id"`
+			Notification string  `json:"notification"`
+			Lat          float64 `json:"lat"`
+			Lon          float64 `json:"lon"`
+			Max          int     `json:"max"`
+			IncidentId   int     `json:"incident_id"`
 		}
 
 		type Notification struct {
-			To string `json:"to"`
-			Priority string `json:"priority"`
-			Data DataStruct `json:"data"`
-			TimeToLive int `json:"time_to_live"`
+			To         string     `json:"to"`
+			Priority   string     `json:"priority"`
+			Data       DataStruct `json:"data"`
+			TimeToLive int        `json:"time_to_live"`
 		}
 
-		notification := &Notification {
-			To: "",
+		notification := &Notification{
+			To:       "",
 			Priority: "",
-			Data: DataStruct {
+			Data: DataStruct{
 				Notification: "",
-				Lat: 0,
-				Lon: 0,
-				Max: 0,
-				IncidentId: 0,
+				Lat:          0,
+				Lon:          0,
+				Max:          0,
+				IncidentId:   0,
 			},
 			TimeToLive: 0,
 		}
@@ -564,11 +562,11 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		ApiToken string	`json:"api_token"`
-		IncId    string	`json:"inc_id"`
-		HasKit   bool	`json:"has_kit"`
-		IsGoing  bool	`json:"is_going"`
-	}{"","", false, false}
+		ApiToken string `json:"api_token"`
+		IncId    string `json:"inc_id"`
+		HasKit   bool   `json:"has_kit"`
+		IsGoing  bool   `json:"is_going"`
+	}{"", "", false, false}
 
 	err := decoder.Decode(&req)
 
@@ -593,7 +591,7 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if(req.IsGoing){
+	if req.IsGoing {
 		incidentLat := 0
 		incidentLng := 0
 
@@ -649,9 +647,9 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		ApiToken string		`json:"api_token"`
-		Lat      float64		`json:"latitude"`
-		Lng      float64		`json:"longitude"`
+		ApiToken string  `json:"api_token"`
+		Lat      float64 `json:"latitude"`
+		Lng      float64 `json:"longitude"`
 	}{"", 0, 0}
 
 	err := decoder.Decode(&req)
@@ -681,10 +679,10 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
-		ApiToken string 		`json:"api_token"`
-		IncId    string 		`json:"inc_id"`
-		Lat      float64		`json:"latitude"`
-		Lng      float64		`json:"longitude"`
+		ApiToken string  `json:"api_token"`
+		IncId    string  `json:"inc_id"`
+		Lat      float64 `json:"latitude"`
+		Lng      float64 `json:"longitude"`
 	}{"", "", 0, 0}
 
 	requesterlat := ""
@@ -819,6 +817,35 @@ func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func tokenMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		decoder := json.NewDecoder(r.Body)
+		req := struct {
+			ApiToken string `json:"api_token"`
+		}{""}
+
+		err := decoder.Decode(&req)
+
+		if err != nil {
+			failWithStatusCode(err, "Token Error", w, http.StatusForbidden)
+		}
+
+		if userSocketmap[req.ApiToken] == nil {
+			// Have to get from DB
+			result := ""
+			queryString := "SELECT current_status FROM users WHERE api_token LIKE $1;"
+			stmt, _ := db.Prepare(queryString)
+			err = stmt.QueryRow(req.ApiToken).Scan(&result)
+
+			if err == sql.ErrNoRows {
+				w.WriteHeader(http.StatusForbidden)
+				fmt.Fprintf(w, "Token Validation failed")
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func initRoutes() {
