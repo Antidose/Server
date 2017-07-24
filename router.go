@@ -593,7 +593,22 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//	TODO: get the location from incidents, and send it back
+	if(req.IsGoing){
+		incidentLat := 0
+		incidentLng := 0
+
+		queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
+		stmt, _ = db.Prepare(queryString)
+		err = stmt.QueryRow(req.IncId).Scan(&incidentLng, &incidentLat)
+		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
+	}
+
+	if err != nil {
+		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -684,7 +699,7 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(responder.IncId).Scan(&requesterlat, &requesterlng)
+	err = stmt.QueryRow(responder.IncId).Scan(&requesterlng, &requesterlat)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
