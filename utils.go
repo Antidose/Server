@@ -53,10 +53,10 @@ func randString(n int) string {
 	return string(b)
 }
 
-func formatGeoSON(lat float64, lng float64) []byte {
+func formatGeoSON(lng float64, lat float64) []byte {
 	Loc := Location{}
 	Loc.Type = "Point"
-	Loc.Coordinates = []float64{lat, lng}
+	Loc.Coordinates = []float64{lng, lat}
 	Loc.Crs.Type = "name"
 	Loc.Crs.Properties.Name = "EPSG:4326"
 
