@@ -69,6 +69,14 @@ func formatGeoSON(lat float64, lng float64) ([]byte) {
 	return LocJSON
 }
 
+func getMapBoxToken() (string){
+	if isHeroku {
+		return os.Getenv("MAPBOX_TOKEN")
+	} else {
+		return configuration.Mapbox.Token
+	}
+}
+
 var userAuthStore = make(map[string]string)
 
 func sendText(phoneNumber string, message string) {
@@ -631,11 +639,11 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
-		strconv.FormatFloat(responder.Lng, 'f', 6, 64) + "," +
-		strconv.FormatFloat(responder.Lat, 'f', 6, 64) + ";" +
+		strconv.FormatFloat(responder.Lng, 'f', 12, 64) + "," +
+		strconv.FormatFloat(responder.Lat, 'f', 12, 64) + ";" +
 		requesterlng + "," +
 		requesterlat + ".json" +
-		"?access_token=" + configuration.Mapbox.Token
+		"?access_token=" + getMapBoxToken()
 
 	fmt.Printf("mapbox request:\n%s\n", urlString)
 
