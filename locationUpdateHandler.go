@@ -20,7 +20,7 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LocJSON := formatGeoSON(req.Lat, req.Lng)
+	LocJSON := formatGeoSON(req.Lng, req.Lat)
 
 	queryString := "INSERT INTO location (u_id, help_location) " +
 		"SELECT u_id, ST_GeomFromGeoJSON($2) " +
