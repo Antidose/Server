@@ -518,11 +518,11 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	incidentLat  := 0
-	incidentLong := 0
+	incidentLng := 0
 
 	queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 	stmt, _ = db.Prepare(queryString)
-	err = stmt.QueryRow(req.IncId).Scan(&incidentLong, &incidentLat)
+	err = stmt.QueryRow(req.IncId).Scan(&incidentLng, &incidentLat)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
@@ -530,7 +530,7 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLong)
+	fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
 }
 
 func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -621,7 +621,7 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(responder.IncId).Scan(&requesterlat, &requesterlng)
+	err = stmt.QueryRow(responder.IncId).Scan(&requesterlng, &requesterlat)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
