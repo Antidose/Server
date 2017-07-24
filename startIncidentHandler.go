@@ -178,5 +178,5 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "\"incident_id\":\"%s\",\"num_notified\":%d, \"radius\":%d", incId, len(responderCandidates), startRadius)
+	fmt.Fprintf(w, "{\"incident_id\":\"%s\",\"num_notified\":%d, \"radius\":%d}", incId, len(responderCandidates), startRadius)
 }
