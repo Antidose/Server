@@ -9,16 +9,14 @@ import (
 
 	"database/sql"
 
-	"net/http"
-
 	"github.com/sfreiberg/gotwilio"
 )
 
 // Configuration : Core config structure
 type Configuration struct {
-	Twilio TwilioKey
-	DB     DbCreds
-	Mapbox Mapbox
+	Twilio   TwilioKey
+	DB       DbCreds
+	Mapbox   Mapbox
 	Firebase Firebase
 }
 
@@ -29,6 +27,7 @@ type TwilioKey struct {
 	Number string
 }
 
+// DbCreds : Cred structure for DB
 type DbCreds struct {
 	Host   string
 	Port   int
@@ -37,25 +36,29 @@ type DbCreds struct {
 	DbName string
 }
 
+// Mapbox : Mapbox structure for config
 type Mapbox struct {
 	Token string
 }
 
+// Firebase : Structure for firrebase key
 type Firebase struct {
 	Key string
 }
 
+// Location : Location object
 type Location struct {
-	Type string
+	Type        string
 	Coordinates []float64
-	Crs struct {
-		Type string
+	Crs         struct {
+		Type       string
 		Properties struct {
 			Name string
 		}
 	}
 }
 
+// MapboxRoute : Route for mapbox structure
 type MapboxRoute struct {
 	Duration   float32
 	Distance   float32
@@ -64,9 +67,10 @@ type MapboxRoute struct {
 	Geometry   string
 }
 
+// SocketMessage : Structure for socket message
 type SocketMessage struct {
-	IncidentId string
-	UserId     string
+	IncidentID string
+	UserID     string
 }
 
 // Globals
@@ -77,33 +81,6 @@ var (
 	antidoseTwilio = loadTwilio()
 	db             = loadDB()
 )
-
-func failOnError(err error, msg string) {
-	if err != nil {
-		fmt.Printf("%s: %s", msg, err)
-		panic(err)
-	}
-}
-
-func failWithStatusCode(err error, msg string, w http.ResponseWriter, statusCode int) {
-	failGracefully(err, msg)
-	w.WriteHeader(statusCode)
-	fmt.Fprintf(w, msg)
-}
-
-func failGracefully(err error, msg string) {
-	if err != nil {
-		fmt.Printf("%s: %s", msg, err)
-	}
-}
-
-func checkHeroku() bool {
-	if os.Getenv("IS_HEROKU") != "" {
-		fmt.Printf("this is running on heroku")
-		return true
-	}
-	return false
-}
 
 func loadConfig() Configuration {
 	configuration := Configuration{}

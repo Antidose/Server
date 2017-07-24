@@ -10,8 +10,8 @@ import (
 func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
-		ApiToken string  `json:"api_token"`
-		IncId    string  `json:"inc_id"`
+		APIToken string  `json:"api_token"`
+		IncID    string  `json:"inc_id"`
 		Lat      float64 `json:"latitude"`
 		Lng      float64 `json:"longitude"`
 	}{"", "", 0, 0}
@@ -28,7 +28,7 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(responder.IncId).Scan(&requesterlng, &requesterlat)
+	err = stmt.QueryRow(responder.IncID).Scan(&requesterlng, &requesterlat)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
@@ -36,11 +36,11 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
-		strconv.FormatFloat(responder.Lng, 'f', 6, 64) + "," +
-		strconv.FormatFloat(responder.Lat, 'f', 6, 64) + ";" +
+		strconv.FormatFloat(responder.Lng, 'f', 12, 64) + "," +
+		strconv.FormatFloat(responder.Lat, 'f', 12, 64) + ";" +
 		requesterlng + "," +
 		requesterlat + ".json" +
-		"?access_token=" + configuration.Mapbox.Token
+		"?access_token=" + getMapBoxToken()
 
 	fmt.Printf("mapbox request:\n%s\n", urlString)
 

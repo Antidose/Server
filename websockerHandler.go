@@ -37,15 +37,15 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(message.UserId) == 16 {
+	if len(message.UserID) == 16 {
 		// add user to incident using token
-		incidentUserSocketMap[message.IncidentId] = append(incidentUserSocketMap[message.IncidentId], conn)
-		updateUserSockets(message.IncidentId)
+		incidentUserSocketMap[message.IncidentID] = append(incidentUserSocketMap[message.IncidentID], conn)
+		updateUserSockets(message.IncidentID)
 	}
 
-	if len(message.UserId) == 15 {
+	if len(message.UserID) == 15 {
 		// new Incident from IMEI
-		users, found := incidentUserSocketMap[message.IncidentId]
+		users, found := incidentUserSocketMap[message.IncidentID]
 		if found {
 			// Another request is being opened from the same IMEI. Das bad
 			fmt.Print(users)
@@ -53,7 +53,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			// Close all sockets
 			//userSocket.Close()
 		}
-		incidentUserSocketMap[message.IncidentId] = []*websocket.Conn{conn}
+		incidentUserSocketMap[message.IncidentID] = []*websocket.Conn{conn}
 	}
 	//conn.WriteMessage(websocket.TextMessage, []byte("4"))
 	fmt.Printf("Handshake from client is %+v\n", message)
