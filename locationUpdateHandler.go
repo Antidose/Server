@@ -8,7 +8,7 @@ import (
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		ApiToken string  `json:"api_token"`
+		APIToken string  `json:"api_token"`
 		Lat      float64 `json:"latitude"`
 		Lng      float64 `json:"longitude"`
 	}{"", 0, 0}
@@ -29,7 +29,7 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		"DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
 
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(req.ApiToken, LocJSON)
+	_, err = stmt.Exec(req.APIToken, LocJSON)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)

@@ -9,21 +9,21 @@ import (
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		ApiToken string `json:"api_token"`
-		IncId    string `json:"inc_id"`
+		APIToken string `json:"api_token"`
+		IncID    string `json:"inc_id"`
 		HasKit   bool   `json:"has_kit"`
 		IsGoing  bool   `json:"is_going"`
 	}{"", "", false, false}
 
 	err := decoder.Decode(&req)
 
-	if err != nil || req.ApiToken == "" {
+	if err != nil || req.APIToken == "" {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 	}
 
 	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
 	stmt, err := db.Prepare(queryString)
-	res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.ApiToken, req.IncId)
+	res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.APIToken, req.IncID)
 
 	numRows, _ := res.RowsAffected()
 
@@ -39,12 +39,12 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.IsGoing {
-		incidentLat := 0
-		incidentLng := 0
+		incidentLat := 0.00
+		incidentLng := 0.00
 
 		queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 		stmt, _ = db.Prepare(queryString)
-		err = stmt.QueryRow(req.IncId).Scan(&incidentLng, &incidentLat)
+		err = stmt.QueryRow(req.IncID).Scan(&incidentLng, &incidentLat)
 		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
 	}
 

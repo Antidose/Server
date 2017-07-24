@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 )
@@ -70,4 +72,38 @@ func sendText(phoneNumber string, message string) {
 		phoneNumber = os.Getenv("TWILIO_NUMBER")
 	}
 	antidoseTwilio.SendSMS(configuration.Twilio.Number, phoneNumber, message, "", "")
+}
+
+func getMapBoxToken() string {
+	if isHeroku {
+		return os.Getenv("MAPBOX_TOKEN")
+	}
+	return configuration.Mapbox.Token
+}
+
+func failOnError(err error, msg string) {
+	if err != nil {
+		fmt.Printf("%s: %s", msg, err)
+		panic(err)
+	}
+}
+
+func failWithStatusCode(err error, msg string, w http.ResponseWriter, statusCode int) {
+	failGracefully(err, msg)
+	w.WriteHeader(statusCode)
+	fmt.Fprintf(w, msg)
+}
+
+func failGracefully(err error, msg string) {
+	if err != nil {
+		fmt.Printf("%s: %s", msg, err)
+	}
+}
+
+func checkHeroku() bool {
+	if os.Getenv("IS_HEROKU") != "" {
+		fmt.Printf("this is running on heroku")
+		return true
+	}
+	return false
 }

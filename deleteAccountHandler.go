@@ -8,7 +8,7 @@ import (
 func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		ApiToken string `json:"api_token"`
+		APIToken string `json:"api_token"`
 	}{""}
 
 	err := decoder.Decode(&req)
@@ -20,7 +20,7 @@ func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "DELETE FROM users WHERE api_token = $1"
 	stmt, _ := db.Prepare(queryString)
-	res, err := stmt.Exec(req.ApiToken)
+	res, err := stmt.Exec(req.APIToken)
 
 	if err != nil {
 		failWithStatusCode(err, "Database error", w, http.StatusInternalServerError)
