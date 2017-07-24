@@ -12,15 +12,15 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func updateUserSockets(incidentID string) {
-	numResponders := []byte(string(len(incidentUserSocketMap[incidentID])))
-	fmt.Printf("Number of responders %s\n", numResponders)
+func pushMessageToSubscribers(incidentID string, message string) {
 	for _, socket := range incidentUserSocketMap[incidentID] {
-		// Notify all users that
-		socket.WriteMessage(websocket.TextMessage, numResponders)
-		// index is the index where we are
-		// element is the element from someSlice for where we are
+		socket.WriteMessage(websocket.TextMessage, []byte(message))
 	}
+}
+
+func updateIncidentUserCount(incidentID string) {
+	numResponders := string(len(incidentUserSocketMap[incidentID]))
+	pushMessageToSubscribers(incidentID, numResponders)
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	if len(message.UserID) == 16 {
 		// add user to incident using token
 		incidentUserSocketMap[message.IncidentID] = append(incidentUserSocketMap[message.IncidentID], conn)
-		updateUserSockets(message.IncidentID)
+		updateIncidentUserCount(message.IncidentID)
 	}
 
 	if len(message.UserID) == 15 {
