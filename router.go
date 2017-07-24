@@ -29,7 +29,7 @@ const (
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
-var userSocketmap = make(map[string]*websocket.Conn) // Maps
+var tokenCache = make(map[string]bool)
 
 var incidentUserSocketMap = make(map[string][]*websocket.Conn)
 
