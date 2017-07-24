@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"bytes"
 
 	"database/sql"
 	"time"
@@ -483,6 +484,81 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		startRadius += searchRangeIncrement
 	}
+
+	var maxRange = 0
+
+	for _, v := range responderCandidates {
+		if v > maxRange {
+			maxRange = v
+		}
+	}
+
+	for userId, _ := range responderCandidates {
+		type DataStruct struct {
+			Notification string `json:"notification"`
+			Lat float64 `json:"lat"`
+			Lon float64 `json:"lon"`
+			Max int `json:"max"`
+			IncidentId int `json:"incident_id"`
+		}
+
+		type Notification struct {
+			To string `json:"to"`
+			Priority string `json:"priority"`
+			Data DataStruct `json:"data"`
+			TimeToLive int `json:"time_to_live"`
+		}
+
+		notification := &Notification {
+			To: "",
+			Priority: "",
+			Data: DataStruct {
+				Notification: "",
+				Lat: 0,
+				Lon: 0,
+				Max: 0,
+				IncidentId: 0,
+			},
+			TimeToLive: 0,
+		}
+
+		var lon float64
+		var lat float64
+		var firebaseId string
+		queryString := "SELECT ST_X(help_location), ST_Y(help_location), firebase_id FROM users NATURAL JOIN location WHERE u_id = $1"
+		stmt, err := db.Prepare(queryString)
+		err = stmt.QueryRow(userId).Scan(&lon, &lat, &firebaseId)
+
+		if err != nil {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
+
+		notification.Data.Lat = lat
+		notification.Data.Lon = lon
+		notification.Data.Notification = "help"
+		notification.Data.Max = maxRange
+		notification.To = firebaseId
+		notification.Priority = "high"
+
+		firebaseJson, err := json.Marshal(notification)
+
+		if err != nil {
+			failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+			return
+		}
+
+		req, err := http.NewRequest("POST", "https://fcm.googleapis.com/fcm/send", bytes.NewBuffer([]byte(firebaseJson)))
+		if err != nil {
+			failWithStatusCode(err, "Unable to create notification", w, http.StatusInternalServerError)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", configuration.Firebase.Key)
+		http.DefaultClient.Do(req)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "\"incident_id\":\"%s\",\"num_notified\":%d, \"radius\":%d", incId, len(responderCandidates), startRadius)
 }
 
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
