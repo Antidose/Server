@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"math/rand"
 	"net/http"
@@ -26,6 +27,7 @@ var (
 	initialSearchRange   = 1000
 	maxSearchRange       = 10000
 	searchRangeIncrement = 1000
+	coordNames           = [9]string{"N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"}
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -55,7 +57,7 @@ func randString(n int) string {
 	return string(b)
 }
 
-func formatGeoSON(lat float64, lng float64) ([]byte) {
+func formatGeoSON(lat float64, lng float64) []byte {
 	Loc := Location{}
 	Loc.Type = "Point"
 	Loc.Coordinates = []float64{lat, lng}
@@ -360,9 +362,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token	string	`json:"api_token"`
-		Inc_id		string	`json:"inc_id"`
-
+		Api_token string `json:"api_token"`
+		Inc_id    string `json:"inc_id"`
 	}{"", ""}
 
 	err := decoder.Decode(&req)
@@ -390,12 +391,11 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
-		IMEI	int			`json:"IMEI"`
-		Lat		float64		`json:"latitude"`
-		Lng		float64		`json:"longitude"`
+		IMEI int     `json:"IMEI"`
+		Lat  float64 `json:"latitude"`
+		Lng  float64 `json:"longitude"`
 	}{0, 0, 0}
 	err := decoder.Decode(&alert)
-
 
 	if err != nil || alert.IMEI == 0 || alert.Lat == 0 || alert.Lng == 0 {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
@@ -404,7 +404,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	LocJSON := formatGeoSON(alert.Lat, alert.Lng)
 
-	if err != nil{
+	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
 		return
 	}
@@ -488,11 +488,11 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token	string	`json:"api_token"`
-		Inc_id		string	`json:"inc_id"`
-		Has_kit		bool	`json:"has_kit"`
-		Is_going	bool	`json:"is_going"`
-	}{"","", false, false}
+		Api_token string `json:"api_token"`
+		Inc_id    string `json:"inc_id"`
+		Has_kit   bool   `json:"has_kit"`
+		Is_going  bool   `json:"is_going"`
+	}{"", "", false, false}
 
 	err := decoder.Decode(&req)
 
@@ -518,6 +518,29 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//	TODO: get the location from incidents, and send it back
+}
+
+func round(val float64) int {
+	intVal := int(val)
+	if val-float64(intVal) > 0.5 {
+		return intVal + 1
+	}
+	return intVal
+}
+
+func getBearing(lat1 float64, lon1 float64, lat2 float64, lon2 float64) string {
+
+	rads := math.Atan2((lon1 - lon2), (lat1 - lat2))
+
+	compass := rads * (180 / math.Pi)
+
+	coordIndex := round(compass / 45)
+
+	if coordIndex < 0 {
+		coordIndex += 8
+	}
+
+	return coordNames[coordIndex]
 }
 
 func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -558,9 +581,9 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token	string		`json:"api_token"`
-		Lat			float64		`json:"latitude"`
-		Lng			float64		`json:"longitude"`
+		Api_token string  `json:"api_token"`
+		Lat       float64 `json:"latitude"`
+		Lng       float64 `json:"longitude"`
 	}{"", 0, 0}
 
 	err := decoder.Decode(&req)
@@ -590,10 +613,10 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
-		Api_token	string 		`json:"api_token"`
-		Inc_id		string 		`json:"inc_id"`
-		Lat			float64		`json:"latitude"`
-		Lng			float64		`json:"longitude"`
+		Api_token string  `json:"api_token"`
+		Inc_id    string  `json:"inc_id"`
+		Lat       float64 `json:"latitude"`
+		Lng       float64 `json:"longitude"`
 	}{"", "", 0, 0}
 
 	requesterlat := ""
