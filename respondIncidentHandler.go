@@ -23,7 +23,7 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
 	stmt, err := db.Prepare(queryString)
-	res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.APIToken, req.IncID)
+	res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.IncID)
 
 	numRows, _ := res.RowsAffected()
 
