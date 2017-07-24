@@ -633,8 +633,8 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
 		strconv.FormatFloat(responder.Lng, 'f', 6, 64) + "," +
 		strconv.FormatFloat(responder.Lat, 'f', 6, 64) + ";" +
-		requesterlat + "," +
-		requesterlng + ".json" +
+		requesterlng + "," +
+		requesterlat + ".json" +
 		"?access_token=" + configuration.Mapbox.Token
 
 	resp, err := http.Get(urlString)
