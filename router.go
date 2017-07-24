@@ -736,6 +736,8 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 		requesterlat + ".json" +
 		"?access_token=" + configuration.Mapbox.Token
 
+	fmt.Printf("mapbox request:\n%s\n", urlString)
+
 	resp, err := http.Get(urlString)
 
 	if err != nil {
