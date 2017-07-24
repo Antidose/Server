@@ -38,6 +38,10 @@ const (
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
+var userSocketmap = make(map[string]*websocket.Conn) // Maps
+
+var incidentUserSocketMap = make(map[string][]*websocket.Conn)
+
 func jsonToString() {}
 
 func randString(n int) string {
@@ -107,10 +111,6 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
-
-var userSocketmap = make(map[string]*websocket.Conn) // Maps
-
-var incidentUserSocketMap = make(map[string][]*websocket.Conn)
 
 func updateUserSockets(incidentID string) {
 	numResponders := []byte(string(len(incidentUserSocketMap[incidentID])))
@@ -847,6 +847,35 @@ func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func tokenMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		decoder := json.NewDecoder(r.Body)
+		req := struct {
+			ApiToken string `json:"api_token"`
+		}{""}
+
+		err := decoder.Decode(&req)
+
+		if err != nil {
+			failWithStatusCode(err, "Token Error", w, http.StatusForbidden)
+		}
+
+		if userSocketmap[req.ApiToken] == nil {
+			// Have to get from DB
+			result := ""
+			queryString := "SELECT current_status FROM users WHERE api_token LIKE $1;"
+			stmt, _ := db.Prepare(queryString)
+			err = stmt.QueryRow(req.ApiToken).Scan(&result)
+
+			if err == sql.ErrNoRows {
+				w.WriteHeader(http.StatusForbidden)
+				fmt.Fprintf(w, "Token Validation failed")
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func initRoutes() {
