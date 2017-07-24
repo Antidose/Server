@@ -12,18 +12,18 @@ import (
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
-		IMEI int     `json:"IMEI"`
+		IMEI string  `json:"IMEI"`
 		Lat  float64 `json:"latitude"`
 		Lng  float64 `json:"longitude"`
-	}{0, 0, 0}
+	}{"", 0, 0}
 	err := decoder.Decode(&alert)
 
-	if err != nil || alert.IMEI == 0 || alert.Lat == 0 || alert.Lng == 0 {
+	if err != nil || alert.IMEI == "" || alert.Lat == 0 || alert.Lng == 0 {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 		return
 	}
 
-	LocJSON := formatGeoSON(alert.Lat, alert.Lng)
+	LocJSON := formatGeoSON(alert.Lng, alert.Lat)
 
 	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
