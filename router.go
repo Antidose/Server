@@ -730,10 +730,10 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	urlString := "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" +
-		strconv.FormatFloat(responder.Lat, 'f', 6, 64) + "," +
-		strconv.FormatFloat(responder.Lng, 'f', 6, 64) + ";" +
-		requesterlat + "," +
-		requesterlng + ".json" +
+		strconv.FormatFloat(responder.Lng, 'f', 6, 64) + "," +
+		strconv.FormatFloat(responder.Lat, 'f', 6, 64) + ";" +
+		requesterlng + "," +
+		requesterlat + ".json" +
 		"?access_token=" + configuration.Mapbox.Token
 
 	resp, err := http.Get(urlString)
@@ -751,6 +751,11 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
+		return
+	}
+
+	if len(MapboxResponse.Routes) < 1 {
+		failWithStatusCode(err, "No Route from mapbox", w, http.StatusInternalServerError)
 		return
 	}
 
