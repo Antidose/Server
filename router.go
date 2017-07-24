@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"bytes"
 	"math/rand"
 	"net/http"
 	"os"
@@ -322,8 +323,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 			failWithStatusCode(err, "Error preparing query", w, http.StatusInternalServerError)
 			return
 		}
-		var api_token = randString(16)
-		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", api_token, Req.FirebaseId)
+		var apiToken = randString(16)
+		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", apiToken, Req.FirebaseId)
 		if err != nil {
 			failWithStatusCode(err, "Error Inserting User", w, http.StatusInternalServerError)
 			return
@@ -351,7 +352,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "{\"api_token\":\"%s\"}", api_token)
+		fmt.Fprintf(w, "{\"api_token\":\"%s\"}", apiToken)
 
 	} else {
 		failWithStatusCode(err, "Token does not match", w, http.StatusUnauthorized)
@@ -362,8 +363,8 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
-		Inc_id    string `json:"inc_id"`
+		ApiToken string `json:"api_token"`
+		IncId    string `json:"inc_id"`
 	}{"", ""}
 
 	err := decoder.Decode(&req)
@@ -375,7 +376,7 @@ func numResponderHandler(w http.ResponseWriter, r *http.Request) {
 	result := ""
 	queryString := "SELECT count(response_val) FROM requests WHERE response_val = TRUE AND inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(req.Inc_id).Scan(&result)
+	err = stmt.QueryRow(req.IncId).Scan(&result)
 
 	if err != nil {
 		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
@@ -439,7 +440,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type responder struct {
-		U_id     int
+		Uid      int
 		Distance int
 	}
 
@@ -468,7 +469,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 				tuple = strings.Replace(tuple, "(", "", 1)
 				tuple = strings.Replace(tuple, ")", "", 1)
 				colArray := strings.Split(tuple, ",")
-				U_id, err := strconv.Atoi(colArray[0])
+				Uid, err := strconv.Atoi(colArray[0])
 				if err != nil {
 					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
 				}
@@ -476,33 +477,108 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
 				}
-				responderCandidates[U_id] = Distance
+				responderCandidates[Uid] = Distance
 			} else {
 				break
 			}
 		}
 		startRadius += searchRangeIncrement
 	}
+
+	var maxRange = 0
+
+	for _, v := range responderCandidates {
+		if v > maxRange {
+			maxRange = v
+		}
+	}
+
+	for userId, _ := range responderCandidates {
+		type DataStruct struct {
+			Notification string  `json:"notification"`
+			Lat          float64 `json:"lat"`
+			Lon          float64 `json:"lon"`
+			Max          int     `json:"max"`
+			IncidentId   int     `json:"incident_id"`
+		}
+
+		type Notification struct {
+			To         string     `json:"to"`
+			Priority   string     `json:"priority"`
+			Data       DataStruct `json:"data"`
+			TimeToLive int        `json:"time_to_live"`
+		}
+
+		notification := &Notification{
+			To:       "",
+			Priority: "",
+			Data: DataStruct{
+				Notification: "",
+				Lat:          0,
+				Lon:          0,
+				Max:          0,
+				IncidentId:   0,
+			},
+			TimeToLive: 0,
+		}
+
+		var lon float64
+		var lat float64
+		var firebaseId string
+		queryString := "SELECT ST_X(help_location), ST_Y(help_location), firebase_id FROM users NATURAL JOIN location WHERE u_id = $1"
+		stmt, err := db.Prepare(queryString)
+		err = stmt.QueryRow(userId).Scan(&lon, &lat, &firebaseId)
+
+		if err != nil {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
+
+		notification.Data.Lat = lat
+		notification.Data.Lon = lon
+		notification.Data.Notification = "help"
+		notification.Data.Max = maxRange
+		notification.To = firebaseId
+		notification.Priority = "high"
+
+		firebaseJson, err := json.Marshal(notification)
+
+		if err != nil {
+			failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+			return
+		}
+
+		req, err := http.NewRequest("POST", "https://fcm.googleapis.com/fcm/send", bytes.NewBuffer([]byte(firebaseJson)))
+		if err != nil {
+			failWithStatusCode(err, "Unable to create notification", w, http.StatusInternalServerError)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", configuration.Firebase.Key)
+		http.DefaultClient.Do(req)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "\"incident_id\":\"%s\",\"num_notified\":%d, \"radius\":%d", incId, len(responderCandidates), startRadius)
 }
 
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
-		Inc_id    string `json:"inc_id"`
-		Has_kit   bool   `json:"has_kit"`
-		Is_going  bool   `json:"is_going"`
+		ApiToken string `json:"api_token"`
+		IncId    string `json:"inc_id"`
+		HasKit   bool   `json:"has_kit"`
+		IsGoing  bool   `json:"is_going"`
 	}{"", "", false, false}
 
 	err := decoder.Decode(&req)
 
-	if err != nil || req.Api_token == "" {
+	if err != nil || req.ApiToken == "" {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
 	}
 
 	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
 	stmt, err := db.Prepare(queryString)
-	res, err := stmt.Exec("now", req.Is_going, req.Has_kit, req.Api_token, req.Inc_id)
+	res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.ApiToken, req.IncId)
 
 	numRows, _ := res.RowsAffected()
 
@@ -512,12 +588,27 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	if req.Is_going == false {
+	if req.IsGoing == false {
 		fmt.Fprintf(w, "Response processed")
 		return
 	}
 
-	//	TODO: get the location from incidents, and send it back
+	if req.IsGoing {
+		incidentLat := 0
+		incidentLng := 0
+
+		queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
+		stmt, _ = db.Prepare(queryString)
+		err = stmt.QueryRow(req.IncId).Scan(&incidentLng, &incidentLat)
+		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
+	}
+
+	if err != nil {
+		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func round(val float64) int {
@@ -581,9 +672,9 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string  `json:"api_token"`
-		Lat       float64 `json:"latitude"`
-		Lng       float64 `json:"longitude"`
+		ApiToken string  `json:"api_token"`
+		Lat      float64 `json:"latitude"`
+		Lng      float64 `json:"longitude"`
 	}{"", 0, 0}
 
 	err := decoder.Decode(&req)
@@ -602,7 +693,7 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		"DO UPDATE SET help_location = ST_GeomFromGeoJSON($2);"
 
 	stmt, err := db.Prepare(queryString)
-	_, err = stmt.Exec(req.Api_token, LocJSON)
+	_, err = stmt.Exec(req.ApiToken, LocJSON)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to update location", w, http.StatusInternalServerError)
@@ -613,10 +704,10 @@ func locationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	responder := struct {
-		Api_token string  `json:"api_token"`
-		Inc_id    string  `json:"inc_id"`
-		Lat       float64 `json:"latitude"`
-		Lng       float64 `json:"longitude"`
+		ApiToken string  `json:"api_token"`
+		IncId    string  `json:"inc_id"`
+		Lat      float64 `json:"latitude"`
+		Lng      float64 `json:"longitude"`
 	}{"", "", 0, 0}
 
 	requesterlat := ""
@@ -631,7 +722,7 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 	stmt, _ := db.Prepare(queryString)
-	err = stmt.QueryRow(responder.Inc_id).Scan(&requesterlat, &requesterlng)
+	err = stmt.QueryRow(responder.IncId).Scan(&requesterlng, &requesterlat)
 
 	if err != nil {
 		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
@@ -670,8 +761,8 @@ func getInfoResponderHandler(w http.ResponseWriter, r *http.Request) {
 func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
-		Status    string `json:"status"`
+		ApiToken string `json:"api_token"`
+		Status   string `json:"status"`
 	}{"", ""}
 
 	err := decoder.Decode(&req)
@@ -687,7 +778,7 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 		result := ""
 		queryString := "SELECT current_status FROM users WHERE api_token LIKE $1;"
 		stmt, _ := db.Prepare(queryString)
-		err = stmt.QueryRow(req.Api_token).Scan(&result)
+		err = stmt.QueryRow(req.ApiToken).Scan(&result)
 
 		if err == sql.ErrNoRows {
 			failWithStatusCode(err, "could not find user", w, http.StatusNotFound)
@@ -704,7 +795,7 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 		queryString := "UPDATE users SET current_status = $1 WHERE api_token LIKE $2;"
 		stmt, _ := db.Prepare(queryString)
-		res, err := stmt.Exec(req.Status, req.Api_token)
+		res, err := stmt.Exec(req.Status, req.ApiToken)
 
 		if err != nil {
 			failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
@@ -725,7 +816,7 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		Api_token string `json:"api_token"`
+		ApiToken string `json:"api_token"`
 	}{""}
 
 	err := decoder.Decode(&req)
@@ -737,7 +828,7 @@ func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 
 	queryString := "DELETE FROM users WHERE api_token = $1"
 	stmt, _ := db.Prepare(queryString)
-	res, err := stmt.Exec(req.Api_token)
+	res, err := stmt.Exec(req.ApiToken)
 
 	if err != nil {
 		failWithStatusCode(err, "Database error", w, http.StatusInternalServerError)
