@@ -68,7 +68,7 @@ func formatGeoSON(lng float64, lat float64) []byte {
 }
 
 func sendText(phoneNumber string, message string) {
-	myPhoneNumber = configuration.Twilio.Number
+	myPhoneNumber := configuration.Twilio.Number
 	if isHeroku {
 		myPhoneNumber = os.Getenv("TWILIO_NUMBER")
 	}
