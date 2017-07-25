@@ -175,6 +175,22 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", configuration.Firebase.Key)
 		http.DefaultClient.Do(req)
+
+		queryString = "INSERT INTO requests(u_id, init_time, inc_id, init_help_location) VALUES($1, $2, $3, ST_GeomFRomGeoJson($4))"
+		stmt, _ = db.Prepare(queryString)
+		res, err := stmt.Exec(userId, "now", incId, string(LocJSON))
+
+		if err != nil {
+			failWithStatusCode(err, "Database Error", w, http.StatusInternalServerError)
+			return
+		}
+
+		numRows, _ := res.RowsAffected()
+
+		if numRows < 1 {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
+
 	}
 
 	w.WriteHeader(http.StatusOK)
