@@ -68,11 +68,11 @@ func formatGeoSON(lng float64, lat float64) []byte {
 }
 
 func sendText(phoneNumber string, message string) {
-	myPhoneNumber := configuration.Twilio.Number
+	twilioPhoneNumber := configuration.Twilio.Number
 	if isHeroku {
-		myPhoneNumber = os.Getenv("TWILIO_NUMBER")
+		twilioPhoneNumber = os.Getenv("TWILIO_NUMBER")
 	}
-	antidoseTwilio.SendSMS(myPhoneNumber, phoneNumber, message, "", "")
+	antidoseTwilio.SendSMS(twilioPhoneNumber, phoneNumber, message, "", "")
 }
 
 func getMapBoxToken() string {
