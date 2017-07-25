@@ -142,11 +142,24 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 			TimeToLive: 0,
 		}
 
+		var numOpenRequests int
+		queryString := "SELECT count(*) FROM requests WHERE u_id = $1 AND time_responded IS NULL"
+		stmt, err := db.Prepare(queryString)
+		err = stmt.QueryRow(userId).Scan(&numOpenRequests)
+
+		if err != nil {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
+
+		if numOpenRequests > 0 {
+			continue
+		}
+
 		var lon float64
 		var lat float64
 		var firebaseId string
-		queryString := "SELECT ST_X(help_location), ST_Y(help_location), firebase_id FROM users NATURAL JOIN location WHERE u_id = $1"
-		stmt, err := db.Prepare(queryString)
+		queryString = "SELECT ST_X(help_location), ST_Y(help_location), firebase_id FROM users NATURAL JOIN location WHERE u_id = $1"
+		stmt, err = db.Prepare(queryString)
 		err = stmt.QueryRow(userId).Scan(&lon, &lat, &firebaseId)
 
 		if err != nil {
@@ -175,6 +188,22 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", configuration.Firebase.Key)
 		http.DefaultClient.Do(req)
+
+		queryString = "INSERT INTO requests(u_id, init_time, inc_id, init_help_location) VALUES($1, $2, $3, ST_GeomFRomGeoJson($4))"
+		stmt, _ = db.Prepare(queryString)
+		res, err := stmt.Exec(userId, "now", incId, string(LocJSON))
+
+		if err != nil {
+			failWithStatusCode(err, "Database Error", w, http.StatusInternalServerError)
+			return
+		}
+
+		numRows, _ := res.RowsAffected()
+
+		if numRows < 1 {
+			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+		}
+
 	}
 
 	w.WriteHeader(http.StatusOK)
