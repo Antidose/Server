@@ -70,7 +70,7 @@ type Incident struct {
 	End sql.NullString
 }
 
-type Responder struct{
+type Responder struct {
 	Uid	int
 	First	string
 	Last	string
