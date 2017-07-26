@@ -25,6 +25,13 @@ func updateIncidentUserCount(incidentID string) {
 	pushMessageToSubscribers(incidentID, numResponders)
 }
 
+func closeIncidentSockets(incidentID string) {
+	for _, socket := range incidentUserSocketMap[incidentID] {
+		socket.Close()
+	}
+	delete(incidentUserSocketMap, incidentID)
+}
+
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
