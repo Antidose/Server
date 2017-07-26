@@ -59,6 +59,7 @@ func initRoutes() {
 	http.HandleFunc("/startIncident", startIncidentHandler)
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
+	http.HandleFunc("/updateFirebaseToken", updateFirebaseTokenHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
 	http.HandleFunc("/numResponders", numResponderHandler)
 	http.HandleFunc("/getInfoResponder", getInfoResponderHandler)
