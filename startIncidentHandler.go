@@ -13,10 +13,11 @@ import (
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	alert := struct {
-		IMEI string  `json:"IMEI"`
-		Lat  float64 `json:"latitude"`
-		Lng  float64 `json:"longitude"`
-	}{"", 0, 0}
+		IMEI     string  `json:"IMEI"`
+		ApiToken string  `json:"api_token"`
+		Lat      float64 `json:"latitude"`
+		Lng      float64 `json:"longitude"`
+	}{"", "", 0, 0}
 	err := decoder.Decode(&alert)
 
 	if err != nil || alert.IMEI == "" || alert.Lat == 0 || alert.Lng == 0 {
@@ -78,6 +79,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		rows, err := stmt.Query(LocJSON, startRadius)
 		if err != nil {
 			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+			return
 		}
 
 		for rows.Next() {
@@ -86,6 +88,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 				err = rows.Scan(&tuple)
 				if err != nil {
 					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+					return
 				}
 				tuple = strings.Replace(tuple, "(", "", 1)
 				tuple = strings.Replace(tuple, ")", "", 1)
@@ -93,10 +96,12 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 				UID, err := strconv.Atoi(colArray[0])
 				if err != nil {
 					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+					return
 				}
 				Distance, err := strconv.Atoi(colArray[1])
 				if err != nil {
 					failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+					return
 				}
 				responderCandidates[UID] = Distance
 			} else {
@@ -135,10 +140,27 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+			return
 		}
 
 		if numOpenRequests > 0 {
 			continue
+		}
+
+		if alert.ApiToken != "" {
+			selfUID := 0
+			queryString = "SELECT u_id FROM users WHERE api_token = $1"
+			stmt, err = db.Prepare(queryString)
+			err = stmt.QueryRow(alert.ApiToken).Scan(&selfUID)
+
+			if err != nil {
+				failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				return
+			}
+
+			if selfUID == userID {
+				continue
+			}
 		}
 
 		var lon float64
@@ -150,6 +172,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+			return
 		}
 
 		notification.Data.Lat = lat
