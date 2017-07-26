@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"strconv"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -19,7 +21,7 @@ func pushMessageToSubscribers(incidentID string, message string) {
 }
 
 func updateIncidentUserCount(incidentID string) {
-	numResponders := string(len(incidentUserSocketMap[incidentID]))
+	numResponders := strconv.Itoa(len(incidentUserSocketMap[incidentID]))
 	pushMessageToSubscribers(incidentID, numResponders)
 }
 
