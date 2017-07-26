@@ -64,18 +64,20 @@ type SocketMessage struct {
 }
 
 type Incident struct {
-	Longitude float64
-	Latitude float64
-	Start string
-	End sql.NullString
+	IncID      string
+	Longitude  float64
+	Latitude   float64
+	Start      string
+	End        sql.NullString
 }
 
 type Responder struct {
-	Uid	int
-	First	string
-	Last	string
-	Longitude float64
-	Latitude float64
+	Uid          int
+	First        string
+	Last         string
+	Longitude    float64
+	Latitude     float64
+	RespondingTo string
 }
 
 type AdminInfo struct {
