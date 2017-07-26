@@ -14,7 +14,7 @@ func updateFirebaseTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}{"", ""}
 	err := decoder.Decode(&req)
 
-	if err != nil || firebase_token == "" || api_token == "" {
+	if err != nil || req.FirebaseToken == "" || req.ApiToken == "" {
 		failWithStatusCode(err, "Bad Request", w, http.StatusBadRequest)
 		return
 	}
@@ -27,12 +27,17 @@ func updateFirebaseTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := stmt.Exec(req.FirebaseToken, req.ApiToken)
 	if err != nil {
-		failWithStatusCode(err, "Server error", w, httpStatusInternalServerError)
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
 		return
 	}
 
 	numRows, err := res.RowsAffected()
 	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+		return
+	}
+
+	if numRows < 1 {
 		failWithStatusCode(err, "Bad request", w, http.StatusBadRequest)
 		return
 	}
