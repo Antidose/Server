@@ -57,9 +57,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			//userSocket.Close()
 		}
 		IncidentEventObj := &IncidentEvent{Requester: conn}
-		//incidentSocketCache[message.IncidentID] = &IncidentEvent{}
 		incidentSocketCache[message.IncidentID] = IncidentEventObj
-		fmt.Printf("%+v", incidentSocketCache[message.IncidentID])
 	}
 	userSocketCache[message.UserID] = conn
 	//conn.WriteMessage(websocket.TextMessage, []byte("4"))
