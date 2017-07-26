@@ -23,7 +23,7 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	queryString := "SELECT inc_id FROM incidents WHERE requester_imei = $1 AND time_end IS NULL"
 	stmt, err := db.Prepare(queryString)
 	err = stmt.QueryRow(req.IMEI).Scan(&incidentId)
-	
+
 	if err != nil || incidentId == "" {
 		failWithStatusCode(err, "Could not find incident", w, http.StatusBadRequest)
 		return
@@ -49,6 +49,7 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pushMessageToSubscribers(incidentId, "cancel")
+	closeIncidentSockets(incidentId)
 
 	queryString = "UPDATE requests SET time_responded = $1 WHERE inc_id = $2"
 	stmt, err = db.Prepare(queryString)
