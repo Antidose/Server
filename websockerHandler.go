@@ -14,10 +14,26 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func pushMessageToSubscribers(incidentID string, message string) {
-	for _, socket := range incidentSocketCache[incidentID].Responders {
-		socket.WriteMessage(websocket.TextMessage, []byte(message))
+func addUserToIncident(incidentID string, userSocket *websocket.Conn) {
+	IncidentEventObj := IncidentEvent{
+		Requester:  incidentSocketCache[incidentID].Requester,
+		Responders: append(incidentSocketCache[incidentID].Responders, userSocket),
 	}
+	incidentSocketCache[incidentID] = IncidentEventObj
+	updateIncidentUserCount(incidentID)
+}
+
+func pushMessageToSubscribers(incidentID string, message string) {
+	// Push message to responders
+	for _, socket := range incidentSocketCache[incidentID].Responders {
+		fmt.Printf("Pushing message %s", message)
+		socket.WriteMessage(websocket.TextMessage, []byte(message))
+		fmt.Printf("Pushed")
+	}
+	// Push message to requester
+	fmt.Printf("Now Requester")
+	incidentSocketCache[incidentID].Requester.WriteMessage(websocket.TextMessage, []byte(message))
+	fmt.Printf("Pushed")
 }
 
 func updateIncidentUserCount(incidentID string) {
@@ -56,7 +72,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			// Close all sockets
 			//userSocket.Close()
 		}
-		IncidentEventObj := &IncidentEvent{Requester: conn}
+		IncidentEventObj := IncidentEvent{Requester: conn}
 		incidentSocketCache[message.IncidentID] = IncidentEventObj
 	}
 	userSocketCache[message.UserID] = conn

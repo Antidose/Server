@@ -115,6 +115,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for userID := range responderCandidates {
+		fmt.Printf("API Key is %d", userID)
 		notification := &Notification{
 			To:       "",
 			Priority: "",

@@ -39,7 +39,7 @@ var tokenCache = make(map[string]bool)
 
 var userSocketCache = make(map[string]*websocket.Conn)
 
-var incidentSocketCache = make(map[string]*IncidentEvent)
+var incidentSocketCache = make(map[string]IncidentEvent)
 
 func initRoutes() {
 	port := os.Getenv("PORT")
