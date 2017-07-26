@@ -31,7 +31,9 @@ const (
 
 var tokenCache = make(map[string]bool)
 
-var incidentUserSocketMap = make(map[string][]*websocket.Conn)
+var userSocketCache = make(map[string]*websocket.Conn)
+
+var incidentSocketCache = make(map[string][]*websocket.Conn)
 
 func initRoutes() {
 	port := os.Getenv("PORT")
