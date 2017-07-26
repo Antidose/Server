@@ -60,3 +60,20 @@ type SocketMessage struct {
 	IncidentID string
 	UserID     string
 }
+
+// DataStruct : Structure for sending Notification Data
+type DataStruct struct {
+	Notification string  `json:"notification"`
+	Lat          float64 `json:"lat"`
+	Lon          float64 `json:"lon"`
+	Max          int     `json:"max"`
+	IncidentID   string  `json:"incident_id"`
+}
+
+// Notification : Structure for Notifications with Data
+type Notification struct {
+	To         string     `json:"to"`
+	Priority   string     `json:"priority"`
+	Data       DataStruct `json:"data"`
+	TimeToLive int        `json:"time_to_live"`
+}
