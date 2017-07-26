@@ -13,7 +13,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	Req := struct {
 		Token       string `json:"token"`
 		PhoneNumber string `json:"phone_number"`
-		FirebaseId  string `json:"firebase_id"`
+		FirebaseID  string `json:"firebase_id"`
 	}{"", "", ""}
 	err := decoder.Decode(&Req)
 
@@ -22,7 +22,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if Req.Token == "" || Req.PhoneNumber == "" || Req.FirebaseId == "" {
+	if Req.Token == "" || Req.PhoneNumber == "" || Req.FirebaseID == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Bad request")
 		return
@@ -66,7 +66,7 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var apiToken = randString(16)
-		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", apiToken, Req.FirebaseId)
+		res, err := stmt.Exec(User.FirstName, User.LastName, User.PhoneNumber, "active", apiToken, Req.FirebaseID)
 		if err != nil {
 			failWithStatusCode(err, "Error Inserting User", w, http.StatusInternalServerError)
 			return

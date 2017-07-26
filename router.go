@@ -31,7 +31,9 @@ const (
 
 var tokenCache = make(map[string]bool)
 
-var incidentUserSocketMap = make(map[string][]*websocket.Conn)
+var userSocketCache = make(map[string]*websocket.Conn)
+
+var incidentSocketCache = make(map[string][]*websocket.Conn)
 
 func initRoutes() {
 	port := os.Getenv("PORT")
@@ -55,6 +57,7 @@ func initRoutes() {
 	http.HandleFunc("/startIncident", startIncidentHandler)
 	http.HandleFunc("/location", locationUpdateHandler)
 	http.HandleFunc("/userStatus", userStatusHandler)
+	http.HandleFunc("/updateFirebaseToken", updateFirebaseTokenHandler)
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
 	http.HandleFunc("/numResponders", numResponderHandler)
 	http.HandleFunc("/getInfoResponder", getInfoResponderHandler)
