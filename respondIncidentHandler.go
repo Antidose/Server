@@ -32,16 +32,16 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	incidentLat := 0.00
+	incidentLng := 0.00
+
 	if req.IsGoing == false {
-		fmt.Fprintf(w, "Response processed")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng) // Retrofit required this
 		return
 	}
 
 	if req.IsGoing {
-		incidentLat := 0.00
-		incidentLng := 0.00
-
 		queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 		stmt, _ = db.Prepare(queryString)
 		err = stmt.QueryRow(req.IncID).Scan(&incidentLng, &incidentLat)
@@ -54,4 +54,5 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng) // Retrofit required this
 }
