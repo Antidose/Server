@@ -29,12 +29,6 @@ const (
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
-// IncidentEvent : Event struct for incidents
-type IncidentEvent struct {
-	Requester  *websocket.Conn
-	Responders []*websocket.Conn
-}
-
 var tokenCache = make(map[string]bool)
 
 var userSocketCache = make(map[string]*websocket.Conn)
