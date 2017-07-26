@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
-	"os"
 )
 
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +120,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 			Lat          float64 `json:"lat"`
 			Lon          float64 `json:"lon"`
 			Max          int     `json:"max"`
-			IncidentId   int     `json:"incident_id"`
+			IncidentId   string  `json:"incident_id"`
 		}
 
 		type Notification struct {
@@ -138,7 +138,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 				Lat:          0,
 				Lon:          0,
 				Max:          0,
-				IncidentId:   0,
+				IncidentId:   "",
 			},
 			TimeToLive: 0,
 		}
@@ -173,6 +173,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		notification.Data.Max = maxRange
 		notification.To = firebaseId
 		notification.Priority = "high"
+		notification.Data.IncidentId = incId
 
 		firebaseJson, err := json.Marshal(notification)
 
