@@ -8,6 +8,7 @@
 <body style="height: 98%; width: 98%;">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0R4NEaJUmLd85A-2ymIc8daTEYFRq0mA"></script>
 <script src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js"></script>
+<script src="map.js"></script>
 <div id="map" style="height: 100%; width: 100%;"></div>
 
 <script>
@@ -19,132 +20,7 @@
 
         request.onload = function() {
             if (request.status >= 200 && request.status < 400) {
-                var data = JSON.parse(request.responseText);
-                var map           = new google.maps.Map(document.getElementById('map'), {});
-                var bounds        = new google.maps.LatLngBounds();
-                var infoWindow    = new google.maps.InfoWindow({maxWidth: 450, maxHeight: 500});
-                var markers = [];
-                var marker;
-                var contentString;
-                var lat;
-                var lng;
-                var i;
-                var j;
-                var overlap;
-                var position;
-                //create the markers
-                for (i = 0;  i < data.Responders.length; i++) {
-                    lat = data.Responders[i].Latitude;
-                    lng = data.Responders[i].Longitude;
-                    position = new google.maps.LatLng(lat, lng);
-                    //html for the popup info window
-                    contentString =
-                        '<h4>Responder ' + data.Responders[i].Uid + '</h4>'+
-                        '<p>' + data.Responders[i].First + ' ' + data.Responders[i].Last + '</p>';
-                    marker = new google.maps.Marker({
-                        map: null,
-                        position: position,
-                        title: data.Responders[i].First,
-                        groupSize: 1,
-                        text: contentString,
-                        icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                    });
-                    overlap = false;
-                    //check if new marker overlaps with another marker
-                    for(j = 0; j < markers.length; j+=1){
-                        //add marker info to currenty exsting marker
-                        if(position.equals(markers[j].getPosition())){
-                            overlap = true;
-                            markers[j].text = markers[j].text + '<hr style="border-top: 1px solid #cccccc;" />' + contentString;
-                            markers[j].groupSize = markers[j].groupSize + 1;
-                            if (markers[j].groupSize > 1){ markers[j].setLabel(String(markers[j].groupSize));}
-                            break;
-                        }
-                    } //end for
-                    //add marker to map if it does not overlap
-                    if(!overlap){
-                        marker.setMap(map);
-                        bounds.extend(position); //map will zoom and move so that all markers are on the screen
-                        map.fitBounds(bounds);
-                        google.maps.event.addListener(marker, 'mouseover', (function (marker) {
-                            return function () {
-                                contentString = marker.text;
-                                infoWindow.setContent(contentString);
-                                infoWindow.open(map, marker);
-                            };
-                        })(marker));
-                        markers.push(marker);
-                    }
-
-                } //end for
-
-                for (i = 0;  i < data.Incidents.length; i++) {
-                    lat = data.Incidents[i].Latitude;
-                    lng = data.Incidents[i].Longitude;
-                    position = new google.maps.LatLng(lat, lng);
-                    //html for the popup info window
-                    var s = new Date(data.Incidents[i].Start)
-                    var e = new Date(data.Incidents[i].End.String)
-                    var start = "Start Time: " +  s.toLocaleString();
-                    var end = data.Incidents[i].End.Valid ? "End Time " + e.toLocaleString() : "";
-                    contentString =
-                        '<h4>Incident</h4>' +
-                        '<p>' + start + '</p>' +
-                        '<p>' + end + '</p>';
-                    marker = new google.maps.Marker({
-                        map: null,
-                        position: position,
-                        title: "Incident",
-                        groupSize: 1,
-                        text: contentString,
-                        animation: google.maps.Animation.BOUNCE
-                    });
-                    overlap = false;
-                    //check if new marker overlaps with another marker
-                    for(j = 0; j < markers.length; j+=1){
-                        //add marker info to currenty exsting marker
-                        if(position.equals(markers[j].getPosition())){
-                            overlap = true;
-                            markers[j].text = markers[j].text + '<hr style="border-top: 1px solid #cccccc;" />' + contentString;
-                            markers[j].groupSize = markers[j].groupSize + 1;
-                            if (markers[j].groupSize > 1){ markers[j].setLabel(String(markers[j].groupSize));}
-                            break;
-                        }
-                    } //end for
-                    //add marker to map if it does not overlap
-                    if(!overlap){
-                        marker.setMap(map);
-                        bounds.extend(position); //map will zoom and move so that all markers are on the screen
-                        map.fitBounds(bounds);
-                        google.maps.event.addListener(marker, 'mouseover', (function (marker) {
-                            return function () {
-                                contentString = marker.text;
-                                infoWindow.setContent(contentString);
-                                infoWindow.open(map, marker);
-                            };
-                        })(marker));
-                        markers.push(marker);
-                    }
-
-                } //end for
-
-
-                google.maps.event.addListener(map, 'click',(function(marker){
-                    return function(){
-                        infoWindow.close();
-                    };
-                })(marker));
-                var options = {
-                    imagePath: "https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m",
-                    maxZoom: 20,
-                    gridSize: 20
-                };
-
-                var markerCluster = new MarkerClusterer(map, markers, options);
-                if(bounds.isEmpty()){
-                    map.setCenter({lat:48.463150, lng:-123.312189});
-                    map.setZoom(5);
-                }
+                mapIt(request)
             } else {
                 console.log("error");
             }
