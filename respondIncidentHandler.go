@@ -45,6 +45,8 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
 		stmt, _ = db.Prepare(queryString)
 		err = stmt.QueryRow(req.IncID).Scan(&incidentLng, &incidentLat)
+		userSocket := userSocketCache[req.APIToken]
+		incidentSocketCache[req.IncID].Responders = append(incidentSocketCache[req.IncID].Responders, userSocket)
 		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
 	}
 
