@@ -49,7 +49,7 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pushMessageToSubscribers(incidentID, "cancel")
-	closeIncidentSockets(incidentId)
+	closeIncidentSockets(incidentID)
 
 	queryString = "UPDATE requests SET time_responded = $1 WHERE inc_id = $2"
 	stmt, err = db.Prepare(queryString)
