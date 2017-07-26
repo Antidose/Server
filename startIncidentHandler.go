@@ -147,18 +147,20 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		selfUID := 0
-		queryString = "SELECT u_id FROM users WHERE api_token = $1"
-		stmt, err = db.Prepare(queryString)
-		err = stmt.QueryRow(alert.ApiToken).Scan(&selfUID)
+		if alert.ApiToken != "" {
+			selfUID := 0
+			queryString = "SELECT u_id FROM users WHERE api_token = $1"
+			stmt, err = db.Prepare(queryString)
+			err = stmt.QueryRow(alert.ApiToken).Scan(&selfUID)
 
-		if err != nil {
-			failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
-			return
-		}
+			if err != nil {
+				failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
+				return
+			}
 
-		if selfUID == userID {
-			continue
+			if selfUID == userID {
+				continue
+			}
 		}
 
 		var lon float64
