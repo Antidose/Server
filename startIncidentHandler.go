@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"os"
 )
 
 func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
@@ -185,8 +186,14 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 			failWithStatusCode(err, "Unable to create notification", w, http.StatusInternalServerError)
 		}
 
+		firebaseKey := ""
+		if isHeroku {
+			firebaseKey = os.Getenv("FIRE_AUTH")
+		} else {
+			firebaseKey = configuration.Firebase.Key
+		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", configuration.Firebase.Key)
+		req.Header.Set("Authorization", firebaseKey)
 		http.DefaultClient.Do(req)
 
 		queryString = "INSERT INTO requests(u_id, init_time, inc_id, init_help_location) VALUES($1, $2, $3, ST_GeomFRomGeoJson($4))"
