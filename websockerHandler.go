@@ -14,19 +14,24 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+func addUserToIncident(incidentID string, userSocket *websocket.Conn) {
+	incidentSocketCache[incidentID] = append(incidentSocketCache[incidentID], userSocket)
+	updateIncidentUserCount(incidentID)
+}
+
 func pushMessageToSubscribers(incidentID string, message string) {
-	for _, socket := range incidentSocketCache[incidentID].Responders {
+	for _, socket := range incidentSocketCache[incidentID] {
 		socket.WriteMessage(websocket.TextMessage, []byte(message))
 	}
 }
 
 func updateIncidentUserCount(incidentID string) {
-	numResponders := strconv.Itoa(len(incidentSocketCache[incidentID].Responders))
+	numResponders := strconv.Itoa(len(incidentSocketCache[incidentID]) - 1) // -1 Because Requester is in here
 	pushMessageToSubscribers(incidentID, numResponders)
 }
 
 func closeIncidentSockets(incidentID string) {
-	for _, socket := range incidentSocketCache[incidentID].Responders {
+	for _, socket := range incidentSocketCache[incidentID] {
 		socket.Close()
 	}
 	delete(incidentSocketCache, incidentID)
@@ -51,14 +56,14 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		incident, found := incidentSocketCache[message.IncidentID]
 		if found {
 			// Another request is being opened from the same IMEI. Das bad
-			fmt.Print(incident.Responders)
+			fmt.Print(incident)
 			//Probs close all sockets and start over
 			// Close all sockets
 			//userSocket.Close()
 		}
-		IncidentEventObj := &IncidentEvent{Requester: conn}
+		//IncidentEventObj := &IncidentEvent{Requester: conn}
 		//incidentSocketCache[message.IncidentID] = &IncidentEvent{}
-		incidentSocketCache[message.IncidentID] = IncidentEventObj
+		incidentSocketCache[message.IncidentID] = append(incidentSocketCache[message.IncidentID], conn)
 		fmt.Printf("%+v", incidentSocketCache[message.IncidentID])
 	}
 	userSocketCache[message.UserID] = conn

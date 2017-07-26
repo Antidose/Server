@@ -19,6 +19,7 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil || req.APIToken == "" {
 		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+		return
 	}
 
 	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
@@ -46,8 +47,10 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		stmt, _ = db.Prepare(queryString)
 		err = stmt.QueryRow(req.IncID).Scan(&incidentLng, &incidentLat)
 		userSocket := userSocketCache[req.APIToken]
-		incidentSocketCache[req.IncID].Responders = append(incidentSocketCache[req.IncID].Responders, userSocket)
+		addUserToIncident(req.IncID, userSocket)
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
+		return
 	}
 
 	if err != nil {
