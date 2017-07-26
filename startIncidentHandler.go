@@ -188,7 +188,7 @@ func startIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 		firebaseKey := ""
 		if isHeroku {
-			firebaseKey = os.Getenv("FIRE_AUTH")
+			firebaseKey = os.Getenv("FIREBASE_AUTH")
 		} else {
 			firebaseKey = configuration.Firebase.Key
 		}
