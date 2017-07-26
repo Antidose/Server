@@ -10,7 +10,7 @@ import (
 func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	req := struct {
-		ApiToken string `json:"api_token"`
+		APIToken string `json:"api_token"`
 		Status   string `json:"status"`
 	}{"", ""}
 
@@ -27,7 +27,7 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 		result := ""
 		queryString := "SELECT current_status FROM users WHERE api_token LIKE $1;"
 		stmt, _ := db.Prepare(queryString)
-		err = stmt.QueryRow(req.ApiToken).Scan(&result)
+		err = stmt.QueryRow(req.APIToken).Scan(&result)
 
 		if err == sql.ErrNoRows {
 			failWithStatusCode(err, "could not find user", w, http.StatusNotFound)
@@ -44,7 +44,7 @@ func userStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 		queryString := "UPDATE users SET current_status = $1 WHERE api_token LIKE $2;"
 		stmt, _ := db.Prepare(queryString)
-		res, err := stmt.Exec(req.Status, req.ApiToken)
+		res, err := stmt.Exec(req.Status, req.APIToken)
 
 		if err != nil {
 			failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
