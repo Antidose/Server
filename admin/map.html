@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 100%; width: 100%;">
+<head>
+    <meta charset="UTF-8">
+    <title>Map</title>
+</head>
+
+<body style="height: 98%; width: 98%;">
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0R4NEaJUmLd85A-2ymIc8daTEYFRq0mA"></script>
+<script src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js"></script>
+<script src="map.js"></script>
+<div id="map" style="height: 100%; width: 100%;"></div>
+
+<script>
+
+    window.onload = function() {
+
+        var request = new XMLHttpRequest();
+        request.open('GET', '/adminInfo', true);
+
+        request.onload = function() {
+            if (request.status >= 200 && request.status < 400) {
+                mapIt(request)
+            } else {
+                console.log("error");
+            }
+        };
+
+        request.onerror = function() {
+            console.log("conerror");
+            // There was a connection error of some sort
+        };
+
+        request.send();
+    };
+</script>
+</body>
+</html>

@@ -44,6 +44,10 @@ func initRoutes() {
 	}
 
 	fmt.Printf("Started watching on port %s\n", port)
+
+	fs := http.FileServer(http.Dir("admin"))
+	http.Handle("/admin/", http.StripPrefix("/admin/", fs))
+
 	http.HandleFunc("/", mainHandler)
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
@@ -57,5 +61,6 @@ func initRoutes() {
 	http.HandleFunc("/deleteAccount", deleteAccountHandler)
 	http.HandleFunc("/numResponders", numResponderHandler)
 	http.HandleFunc("/getInfoResponder", getInfoResponderHandler)
+	http.HandleFunc("/adminInfo", adminInfoHandler)
 	http.ListenAndServe(port, nil)
 }

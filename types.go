@@ -1,5 +1,7 @@
 package main
 
+import "database/sql"
+
 // Configuration : Core config structure
 type Configuration struct {
 	Twilio   TwilioKey
@@ -59,6 +61,29 @@ type MapboxRoute struct {
 type SocketMessage struct {
 	IncidentID string
 	UserID     string
+}
+
+
+type Incident struct {
+	IncID      string
+	Longitude  float64
+	Latitude   float64
+	Start      string
+	End        sql.NullString
+}
+
+type Responder struct {
+	Uid          int
+	First        string
+	Last         string
+	Longitude    float64
+	Latitude     float64
+	RespondingTo string
+}
+
+type AdminInfo struct {
+	Incidents []Incident
+	Responders []Responder
 }
 
 // DataStruct : Structure for sending Notification Data
