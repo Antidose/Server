@@ -9,7 +9,7 @@ function mapIt (request) {
     let bounds = new google.maps.LatLngBounds();
     let infoWindow = new google.maps.InfoWindow({maxWidth: 450, maxHeight: 500});
     let markers = [];
-    let marker, contentString, lat, lng, start, end, overlap, position;
+    let marker, contentString, lat, lng, start, end, overlap, position, responding;
 
     directionsDisplay.setMap(map);
 
@@ -78,10 +78,11 @@ function mapIt (request) {
             lat = responder.Latitude;
             lng = responder.Longitude;
             position = new google.maps.LatLng(lat, lng);
+            responding = responder.RespondingTo === '0' ? "" : 'Responding to incident: ' + responder.RespondingTo;
             contentString =
                 '<h4>Responder ' + responder.Uid + '</h4>' +
                 '<p>' + responder.First + ' ' + responder.Last + '</p>' +
-                '<p> Responding to: ' + responder.RespondingTo + '</p>';
+                '<p>'+ responding +'</p>';
             marker = new google.maps.Marker({
                 map: null,
                 position: position,
