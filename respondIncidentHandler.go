@@ -22,8 +22,21 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryString := "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
+	var isEnded bool
+	queryString := "SELECT CASE WHEN time_end IS NULL THEN false WHEN time_end IS NOT NULL THEN true END FROM incidents WHERE inc_id = $1"
 	stmt, err := db.Prepare(queryString)
+	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+		return
+	}
+	err = stmt.QueryRow(req.IncID).Scan(isEnded)
+	if err != nil {
+		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+		return
+	}
+
+	queryString = "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
+	stmt, err = db.Prepare(queryString)
 	res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.IncID)
 
 	numRows, _ := res.RowsAffected()
@@ -36,7 +49,7 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 	incidentLat := 0.00
 	incidentLng := 0.00
 
-	if req.IsGoing == false {
+	if req.IsGoing == false || isEnded == true {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng) // Retrofit required this
 		return
