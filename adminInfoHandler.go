@@ -33,7 +33,7 @@ func adminInfoHandler(w http.ResponseWriter, r *http.Request) {
     }
     rows.Close()
 
-    queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location), time_start, time_end, inc_id FROM incidents;"
+    queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location), time_start, time_end, inc_id FROM incidents WHERE is_resolved IS NULL;"
     rows, err = db.Query(queryString)
     if err != nil {
         failWithStatusCode(err, http.StatusText(http.StatusInternalServerError), w, http.StatusInternalServerError)
