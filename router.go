@@ -15,7 +15,7 @@ var (
 	maxRand = 999999
 	minRand = 100000
 
-	targetNumCandidates  = 4
+	targetNumCandidates  = 50
 	initialSearchRange   = 1000
 	maxSearchRange       = 10000
 	searchRangeIncrement = 1000
