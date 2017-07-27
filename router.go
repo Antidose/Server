@@ -47,7 +47,7 @@ func initRoutes() {
 
 	fs := http.FileServer(http.Dir("admin"))
 	http.Handle("/admin/", http.StripPrefix("/admin/", fs))
-
+	http.HandleFunc("/favicon.ico", faviconHandler)
 	http.HandleFunc("/", mainHandler)
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/register", regHandler)
