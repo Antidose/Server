@@ -51,7 +51,7 @@ function mapIt (request) {
                 marker.setMap(map);
                 bounds.extend(position); //map will zoom and move so that all markers are on the screen
                 map.fitBounds(bounds);
-                google.maps.event.addListener(marker, 'mouseover', (function (marker) {
+                google.maps.event.addListener(marker, 'click', (function (marker) {
                     return function () {
                         contentString = marker.text;
                         infoWindow.setContent(contentString);
@@ -113,7 +113,7 @@ function mapIt (request) {
                 marker.setMap(map);
                 bounds.extend(position); //map will zoom and move so that all markers are on the screen
                 map.fitBounds(bounds);
-                google.maps.event.addListener(marker, 'mouseover', (function (marker) {
+                google.maps.event.addListener(marker, 'click', (function (marker) {
                     return function () {
                         contentString = marker.text;
                         infoWindow.setContent(contentString);
