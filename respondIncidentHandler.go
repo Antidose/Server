@@ -1,76 +1,79 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
+    "encoding/json"
+    "fmt"
+    "net/http"
 )
 
 func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	req := struct {
-		APIToken string `json:"api_token"`
-		IncID    string `json:"inc_id"`
-		HasKit   bool   `json:"has_kit"`
-		IsGoing  bool   `json:"is_going"`
-	}{"", "", false, false}
+    decoder := json.NewDecoder(r.Body)
+    req := struct {
+        APIToken string `json:"api_token"`
+        IncID    string `json:"inc_id"`
+        HasKit   bool   `json:"has_kit"`
+        IsGoing  bool   `json:"is_going"`
+    }{"", "", false, false}
 
-	err := decoder.Decode(&req)
+    err := decoder.Decode(&req)
 
-	if err != nil || req.APIToken == "" {
-		failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
-		return
-	}
+    if err != nil || req.APIToken == "" {
+        failWithStatusCode(err, http.StatusText(http.StatusBadRequest), w, http.StatusBadRequest)
+        return
+    }
 
-	var isEnded bool
-	queryString := "SELECT CASE WHEN time_end IS NULL THEN false WHEN time_end IS NOT NULL THEN true END FROM incidents WHERE inc_id = $1"
-	stmt, err := db.Prepare(queryString)
-	if err != nil {
-		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
-		return
-	}
-	err = stmt.QueryRow(req.IncID).Scan(&isEnded)
-	if err != nil {
-		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
-		return
-	}
+    var isEnded bool
+    queryString :=  "SELECT CASE " +
+                    "WHEN time_end IS NULL THEN false " +
+                    "WHEN time_end IS NOT NULL THEN true END " +
+                    "FROM incidents WHERE inc_id = $1"
+    stmt, err := db.Prepare(queryString)
+    if err != nil {
+        failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+        return
+    }
+    err = stmt.QueryRow(req.IncID).Scan(&isEnded)
+    if err != nil {
+        failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+        return
+    }
 
-	queryString = "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
-	stmt, err = db.Prepare(queryString)
-	res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.IncID)
+    queryString = "UPDATE requests SET time_responded = $1, response_val = $2, has_kit = $3 WHERE inc_id = $4;"
+    stmt, err = db.Prepare(queryString)
+    res, err := stmt.Exec("now", req.IsGoing, req.HasKit, req.IncID)
 
-	numRows, _ := res.RowsAffected()
+    numRows, _ := res.RowsAffected()
 
-	if err != nil || numRows < 1 {
-		failWithStatusCode(err, "Failed to process response", w, http.StatusInternalServerError)
-		return
-	}
+    if err != nil || numRows < 1 {
+        failWithStatusCode(err, "Failed to process response", w, http.StatusInternalServerError)
+        return
+    }
 
-	incidentLat := 0.00
-	incidentLng := 0.00
+    incidentLat := 0.00
+    incidentLng := 0.00
 
-	if req.IsGoing == false || isEnded == true {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng) // Retrofit required this
-		return
-	}
+    if req.IsGoing == false || isEnded == true {
+        w.WriteHeader(http.StatusOK)
+        fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng) // Retrofit required this
+        return
+    }
 
-	if req.IsGoing {
-		queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
-		stmt, _ = db.Prepare(queryString)
-		err = stmt.QueryRow(req.IncID).Scan(&incidentLng, &incidentLat)
-		userSocket := userSocketCache[req.APIToken]
-		addUserToIncident(req.IncID, userSocket)
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
-		return
-	}
+    if req.IsGoing {
+        queryString = "SELECT ST_X(init_req_location), ST_Y(init_req_location) FROM incidents WHERE inc_id = $1;"
+        stmt, _ = db.Prepare(queryString)
+        err = stmt.QueryRow(req.IncID).Scan(&incidentLng, &incidentLat)
+        userSocket := userSocketCache[req.APIToken]
+        addUserToIncident(req.IncID, userSocket)
+        w.WriteHeader(http.StatusOK)
+        fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng)
+        return
+    }
 
-	if err != nil {
-		failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
-		return
-	}
+    if err != nil {
+        failWithStatusCode(err, "failed to query database", w, http.StatusInternalServerError)
+        return
+    }
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng) // Retrofit required this
+    w.WriteHeader(http.StatusOK)
+    fmt.Fprintf(w, "{\"latitude\":\"%f\", \"longitude\":\"%f\"}", incidentLat, incidentLng) // Retrofit required this
 }
