@@ -14,7 +14,7 @@ function mapIt (request) {
     directionsDisplay.setMap(map);
 
     //create the markers
-    if (data.Incidents.length > 0) {
+    if (!!data.Incidents) {
         for (let incident of data.Incidents) {
             lat = incident.Latitude;
             lng = incident.Longitude;
@@ -73,7 +73,7 @@ function mapIt (request) {
         }
     }
 
-    if (data.Responders.length > 0) {
+    if (!!data.Responders) {
         for (let responder of data.Responders) {
             lat = responder.Latitude;
             lng = responder.Longitude;
