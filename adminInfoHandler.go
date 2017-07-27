@@ -11,11 +11,11 @@ func adminInfoHandler(w http.ResponseWriter, r *http.Request) {
 
     adminInfo := AdminInfo{}
 
-    queryString :=  "SELECT users.u_id, first_name, last_name, ST_X(help_location), ST_Y(help_location), " +
-                    "COALESCE(inc_id,'0') AS inc_id " +
-                    "FROM users NATURAL JOIN location " +
-                    "LEFT JOIN requests ON users.u_id = requests.u_id AND response_val = TRUE " +
-                    "WHERE current_status = 'active';"
+    queryString :=  "WITH curRequests as (SELECT * FROM requests WHERE response_val = TRUE), " +
+                         "curIncidents as (SELECT * FROM incidents WHERE is_resolved IS NULL), " +
+                         "curUsers  as (SELECT * FROM users NATURAL JOIN location WHERE current_status = 'active')" +
+                    "SELECT curUsers.u_id, first_name, last_name, ST_X(help_location), ST_Y(help_location), COALESCE(inc_id,'0') AS inc_id " +
+                    "FROM curIncidents NATURAL JOIN curRequests RIGHT JOIN curUsers ON curUsers.u_id = curRequests.u_id;"
 
     rows, err := db.Query(queryString)
     if err != nil {
