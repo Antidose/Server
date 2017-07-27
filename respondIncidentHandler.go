@@ -29,7 +29,7 @@ func respondIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
 		return
 	}
-	err = stmt.QueryRow(req.IncID).Scan(isEnded)
+	err = stmt.QueryRow(req.IncID).Scan(&isEnded)
 	if err != nil {
 		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
 		return
