@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"strconv"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -12,15 +14,27 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+func addUserToIncident(incidentID string, userSocket *websocket.Conn) {
+	incidentSocketCache[incidentID] = append(incidentSocketCache[incidentID], userSocket)
+	updateIncidentUserCount(incidentID)
+}
+
 func pushMessageToSubscribers(incidentID string, message string) {
-	for _, socket := range incidentUserSocketMap[incidentID] {
+	for _, socket := range incidentSocketCache[incidentID] {
 		socket.WriteMessage(websocket.TextMessage, []byte(message))
 	}
 }
 
 func updateIncidentUserCount(incidentID string) {
-	numResponders := string(len(incidentUserSocketMap[incidentID]))
+	numResponders := strconv.Itoa(len(incidentSocketCache[incidentID]) - 1) // -1 Because Requester is in here
 	pushMessageToSubscribers(incidentID, numResponders)
+}
+
+func closeIncidentSockets(incidentID string) {
+	for _, socket := range incidentSocketCache[incidentID] {
+		socket.Close()
+	}
+	delete(incidentSocketCache, incidentID)
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
@@ -37,25 +51,23 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(message.UserID) == 16 {
-		// add user to incident using token
-		incidentUserSocketMap[message.IncidentID] = append(incidentUserSocketMap[message.IncidentID], conn)
-		updateIncidentUserCount(message.IncidentID)
-	}
-
 	if len(message.UserID) == 15 {
 		// new Incident from IMEI
-		users, found := incidentUserSocketMap[message.IncidentID]
+		incident, found := incidentSocketCache[message.IncidentID]
 		if found {
 			// Another request is being opened from the same IMEI. Das bad
-			fmt.Print(users)
+			fmt.Print(incident)
 			//Probs close all sockets and start over
 			// Close all sockets
 			//userSocket.Close()
 		}
-		incidentUserSocketMap[message.IncidentID] = []*websocket.Conn{conn}
+		//IncidentEventObj := &IncidentEvent{Requester: conn}
+		//incidentSocketCache[message.IncidentID] = &IncidentEvent{}
+		incidentSocketCache[message.IncidentID] = append(incidentSocketCache[message.IncidentID], conn)
+		fmt.Printf("%+v", incidentSocketCache[message.IncidentID])
 	}
+	userSocketCache[message.UserID] = conn
 	//conn.WriteMessage(websocket.TextMessage, []byte("4"))
 	fmt.Printf("Handshake from client is %+v\n", message)
-	fmt.Printf("Incident Table looks like %+v\n", incidentUserSocketMap)
+	fmt.Printf("Incident Table looks like %+v\n", incidentSocketCache)
 }

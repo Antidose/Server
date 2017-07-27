@@ -1,5 +1,4 @@
-CREATE USER anti;
-ALTER USER anti WITH PASSWORD 'naloxone499';
+ALTER USER postgres WITH PASSWORD 'naloxone499';
 
 CREATE TYPE user_status AS ENUM ('active', 'inactive', 'deleted', 'unverified');
 

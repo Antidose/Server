@@ -19,10 +19,21 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryString := "UPDATE incidents SET time_end = 'now', is_resolved = $1 WHERE time_end IS NULL AND requester_imei = $2"
+	var incidentID string
+	queryString := "SELECT inc_id FROM incidents WHERE requester_imei = $1 AND time_end IS NULL"
 	stmt, err := db.Prepare(queryString)
+	err = stmt.QueryRow(req.IMEI).Scan(&incidentID)
+
+	if err != nil || incidentID == "" {
+		failWithStatusCode(err, "Could not find incident", w, http.StatusBadRequest)
+		return
+	}
+
+	queryString = "UPDATE incidents SET time_end = 'now', is_resolved = $1 WHERE time_end IS NULL AND requester_imei = $2"
+	stmt, err = db.Prepare(queryString)
 	if err != nil {
 		failWithStatusCode(err, "Server error", w, http.StatusInternalServerError)
+		return
 	}
 	res, err := stmt.Exec(req.IsResolved, req.IMEI)
 
@@ -34,6 +45,17 @@ func stopIncidentHandler(w http.ResponseWriter, r *http.Request) {
 
 	if numRows < 1 || err != nil {
 		failWithStatusCode(err, "Failed to close incident", w, http.StatusInternalServerError)
+		return
+	}
+
+	pushMessageToSubscribers(incidentID, "cancel")
+	closeIncidentSockets(incidentID)
+
+	queryString = "UPDATE requests SET time_responded = $1 WHERE inc_id = $2"
+	stmt, err = db.Prepare(queryString)
+	res, err = stmt.Exec("now", incidentID)
+	if err != nil {
+		failWithStatusCode(err, "Server Error", w, http.StatusInternalServerError)
 		return
 	}
 
