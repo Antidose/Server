@@ -18,7 +18,7 @@ func deleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryString := "DELETE FROM users WHERE api_token = $1"
+	queryString := "UPDATE users SET current_status = 'deleted' WHERE api_token = $1"
 	stmt, _ := db.Prepare(queryString)
 	res, err := stmt.Exec(req.APIToken)
 

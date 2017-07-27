@@ -34,7 +34,7 @@ SELECT AddGeometryColumn('incidents', 'init_req_location', 4326, 'POINT', 2);
 
 CREATE TABLE IF NOT EXISTS requests (
 	req_id              serial PRIMARY KEY,
-	u_id                INTEGER REFERENCES users(u_id) ON DELETE CASCADE ,
+	u_id                INTEGER REFERENCES users(u_id),
 	init_time           TIMESTAMP WITHOUT TIME ZONE,
 	time_responded      TIMESTAMP WITHOUT TIME ZONE,
 	response_val        BOOLEAN,
@@ -47,7 +47,7 @@ SELECT AddGeometryColumn('requests', 'init_help_location', 4326, 'POINT', 2);
 
 
 CREATE TABLE IF NOT EXISTS location (
-	u_id                INTEGER UNIQUE REFERENCES users(u_id) ON DELETE CASCADE
+	u_id                INTEGER UNIQUE REFERENCES users(u_id)
 );
 
 SELECT AddGeometryColumn('location', 'help_location', 4326, 'POINT', 2);
