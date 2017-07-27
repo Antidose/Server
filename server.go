@@ -38,7 +38,9 @@ func loadConfig() Configuration {
 
 func loadTwilio() *gotwilio.Twilio {
 	if isHeroku {
-		return gotwilio.NewTwilioClient(os.Getenv("TWILIO_SID"), os.Getenv("TWILIO_TOKEN"))
+		configuration.Twilio.Sid = os.Getenv("TWILIO_SID")
+		configuration.Twilio.Token = os.Getenv("TWILIO_TOKEN")
+		configuration.Twilio.Number = os.Getenv("TWILIO_NUMBER")
 	}
 	return gotwilio.NewTwilioClient(configuration.Twilio.Sid, configuration.Twilio.Token)
 }
