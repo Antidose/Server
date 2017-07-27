@@ -4,14 +4,13 @@
 function mapIt (request) {
     let data = JSON.parse(request.responseText);
     let directionsService = new google.maps.DirectionsService;
-    let directionsDisplay = new google.maps.DirectionsRenderer({suppressMarkers: true});
     let map = new google.maps.Map(document.getElementById('map'), {});
     let bounds = new google.maps.LatLngBounds();
     let infoWindow = new google.maps.InfoWindow({maxWidth: 450, maxHeight: 500});
     let markers = [];
+    let paths = [];
     let marker, contentString, lat, lng, start, end, overlap, position, responding;
 
-    directionsDisplay.setMap(map);
 
     //create the markers
     if (!!data.Incidents) {
@@ -58,13 +57,18 @@ function mapIt (request) {
                         contentString = marker.text;
                         infoWindow.setContent(contentString);
                         infoWindow.open(map, marker);
-                        if (getRespondersForIncident(data.Responders, incident) !== 0) {
-                            calculateAndDisplayRoute(
-                                directionsService,
-                                directionsDisplay,
-                                marker.position,
-                                getRespondersForIncident(data.Responders, incident)
-                            );
+                        if ( getRespondersForIncident(data.Responders, incident).length !== 0) {
+                            let ress = getRespondersForIncident(data.Responders, incident);
+                            for(let res of ress) {
+                                let directionsDisplay = new google.maps.DirectionsRenderer({suppressMarkers: true});
+                                directionsDisplay.setMap(map);
+                                calculateAndDisplayRoute(
+                                    directionsService,
+                                    directionsDisplay,
+                                    marker.position,
+                                    res
+                                );
+                            }
                         }
                     };
                 })(marker));
@@ -89,7 +93,7 @@ function mapIt (request) {
                 title: responder.First,
                 groupSize: 1,
                 text: contentString,
-                icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
             });
             overlap = false;
             //check if new marker overlaps with another marker
@@ -156,12 +160,14 @@ function calculateAndDisplayRoute(directionsService, directionsDisplay, start, e
 }
 
 function getRespondersForIncident(responders, incident) {
+    let paths = [];
     for(let responder of responders){
         if (responder.RespondingTo === incident.IncID){
             console.log("directing " + responder.First + " " + responder.Latitude + " " + responder.Longitude);
             console.log("To " + incident.IncID + " " + incident.Latitude + " " + incident.Longitude);
-            return new google.maps.LatLng(responder.Latitude, responder.Longitude);
+            let latlong = new google.maps.LatLng(responder.Latitude, responder.Longitude);
+            paths.push(latlong);
         }
     }
-    return 0;
+    return paths;
 }
