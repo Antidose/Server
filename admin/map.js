@@ -30,8 +30,7 @@ function mapIt (request) {
                 position: position,
                 title: "Incident",
                 groupSize: 1,
-                text: contentString,
-                animation: google.maps.Animation.BOUNCE
+                text: contentString
             });
             overlap = false;
             //check if new marker overlaps with another marker
