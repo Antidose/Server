@@ -68,6 +68,7 @@ func formatGeoSON(lng float64, lat float64) []byte {
 }
 
 func sendText(phoneNumber string, message string) {
+	fmt.Printf("TWILIO STUFF IS: Token (%s), Number (%s), Sid (%s)", configuration.Twilio.Token, configuration.Twilio.Number, configuration.Twilio.Sid)
 	antidoseTwilio.SendSMS(configuration.Twilio.Number, phoneNumber, message, "", "")
 }
 
